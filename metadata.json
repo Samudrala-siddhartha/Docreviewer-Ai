@@ -1,0 +1,6 @@
+{
+  "name": "DocSure AI",
+  "description": "Enterprise-grade AI-assisted document screening and forensic analysis platform for identity and high-stakes documents.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

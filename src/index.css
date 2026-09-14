@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cinzel", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-deep-teal: #063F3A;
+  --color-emerald-accent: #0B6B5E;
+  --color-gold-muted: #C89B3C;
+  --color-gold-warm: #E1B95A;
+  --color-cream-bg: #F8F5ED;
+  --color-dark-text: #102321;
+  --color-secondary-text: #657572;
+  --color-status-success: #218A68;
+  --color-status-warning: #C58A25;
+  --color-status-danger: #C94A45;
+  --color-status-info: #3E78A8;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    color: #102321;
+    background-color: #F8F5ED;
+  }
+}
+
+.font-brand {
+  font-family: var(--font-serif);
+  letter-spacing: 0.04em;
+}
+
+/* Custom smooth scrollbar for professional menu bar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(11, 107, 94, 0.3) rgba(101, 117, 114, 0.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(101, 117, 114, 0.05);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(11, 107, 94, 0.28);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 107, 94, 0.55);
+}
+
