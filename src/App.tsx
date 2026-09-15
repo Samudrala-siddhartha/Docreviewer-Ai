@@ -22,6 +22,7 @@ import { DigiLockerPage } from './client/pages/DigiLockerPage.tsx';
 import { ReviewerPage } from './client/pages/ReviewerPage.tsx';
 import { AdminPage } from './client/pages/AdminPage.tsx';
 import { ProfilePage } from './client/pages/ProfilePage.tsx';
+import { PWAModulePage } from './client/pages/PWAModulePage.tsx';
 
 const AppContent: React.FC = () => {
   const { currentView } = useAuth();
@@ -54,6 +55,8 @@ const AppContent: React.FC = () => {
         return <AdminPage />;
       case 'profile':
         return <ProfilePage />;
+      case 'pwa':
+        return <PWAModulePage />;
       default:
         return <DashboardPage />;
     }

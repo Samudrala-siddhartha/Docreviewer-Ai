@@ -1,61 +1,111 @@
+/**
+ * DocSure AI - Universal PWA Install Button
+ * Renders in header, dashboard, or inline modules.
+ * Direct install when browser allows, or opens guided device install modal.
+ */
+
 import React, { useState } from 'react';
-import { usePWAInstall } from '@/src/client/hooks/usePWAInstall';
-import { Download, Info } from 'lucide-react';
+import { Download, Smartphone, Check } from 'lucide-react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { PWAInstallModal } from './PWAInstallModal';
 
-export const PWAInstallButton: React.FC = () => {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
+interface PWAInstallButtonProps {
+  variant?: 'navbar' | 'hero' | 'compact' | 'home';
+  className?: string;
+}
 
-  if (isInstalled) {
-    return null;
-  }
+export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
+  variant = 'navbar',
+  className = '',
+}) => {
+  const { isInstallable, isInstalled, install } = usePWAInstall();
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  if (isInstallable) {
-    return (
-      <button
-        onClick={install}
-        className="flex items-center gap-2 rounded-xl bg-[#E1B95A] px-4 py-2 text-sm font-bold text-[#102321] shadow-sm hover:bg-[#C89B3C] transition-colors"
-      >
-        <Download className="w-4 h-4" />
-        Install App
-      </button>
-    );
-  }
+  const handleClick = async () => {
+    if (isInstallable) {
+      setLoading(true);
+      try {
+        const success = await install();
+        if (!success) {
+          setShowModal(true);
+        }
+      } catch {
+        setShowModal(true);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setShowModal(true);
+    }
+  };
 
-  if (isIOS) {
+  if (isInstalled && variant === 'navbar') {
     return (
       <>
         <button
-          onClick={() => setShowIOSGuide(true)}
-          className="flex items-center gap-2 rounded-xl border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+          type="button"
+          onClick={() => setShowModal(true)}
+          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#218A68]/30 bg-[#218A68]/10 text-[#218A68] text-xs font-semibold hover:bg-[#218A68]/15 transition-colors ${className}`}
+          title="App installed on device • Click for details"
         >
-          <Download className="w-3.5 h-3.5" />
-          Install on iOS
+          <Check className="w-3.5 h-3.5" />
+          <span>App Installed</span>
         </button>
-
-        {showIOSGuide && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102321]/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-[#063F3A]/20">
-              <div className="flex items-center gap-2 mb-4">
-                <Info className="w-5 h-5 text-[#0B6B5E]" />
-                <h3 className="text-lg font-bold text-[#102321]">Install on iPhone / iPad</h3>
-              </div>
-              <p className="mt-2 text-sm text-[#657572] leading-relaxed">
-                1. Tap the <strong>Share</strong> button in the Safari toolbar.<br />
-                2. Scroll down and tap <strong>Add to Home Screen</strong>.
-              </p>
-              <button
-                onClick={() => setShowIOSGuide(false)}
-                className="mt-6 w-full rounded-xl bg-[#F8F5ED] py-2.5 text-sm font-bold text-[#063F3A] hover:bg-[#EFE9DB] transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
+        <PWAInstallModal isOpen={showModal} onClose={() => setShowModal(false)} />
       </>
     );
   }
 
-  return null;
+  if (variant === 'hero') {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={loading}
+          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E1B95A] hover:bg-[#C89B3C] text-[#063F3A] font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-60 ${className}`}
+        >
+          <Download className="w-4 h-4" />
+          <span>{isInstalled ? 'App Installed ✓' : isInstallable ? '1-Click Install App' : 'Download PWA on Device'}</span>
+        </button>
+        <PWAInstallModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      </>
+    );
+  }
+
+  if (variant === 'home') {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={loading}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#063F3A] hover:bg-[#0B6B5E] text-white font-bold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-60 ${className}`}
+        >
+          <Download className="w-4 h-4 text-[#E1B95A]" />
+          <span>{isInstalled ? 'App Active on Device' : 'Download PWA'}</span>
+        </button>
+        <PWAInstallModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      </>
+    );
+  }
+
+  // Default navbar variant
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={loading}
+        title="Download / Install DocSure AI PWA on your device or mobile phone"
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#063F3A]/20 bg-[#F8F5ED] hover:bg-[#063F3A]/10 text-[#063F3A] text-xs font-semibold transition-all shadow-2xs active:scale-95 ${className}`}
+      >
+        <Smartphone className="w-3.5 h-3.5 text-[#0B6B5E]" />
+        <span className="hidden sm:inline">{isInstallable ? 'Install App' : 'Get App'}</span>
+        <Download className="w-3.5 h-3.5 text-[#E1B95A]" />
+      </button>
+      <PWAInstallModal isOpen={showModal} onClose={() => setShowModal(false)} />
+    </>
+  );
 };

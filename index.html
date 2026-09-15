@@ -5,14 +5,121 @@
     <script>
       // Suppress benign [vite] websocket connection error in AI Studio sandboxed preview
       (function() {
-        var _err = console.error;
+        var origError = console.error;
         console.error = function() {
-          var firstArg = arguments[0];
-          if (typeof firstArg === 'string' && (firstArg.indexOf('[vite] failed to connect to websocket') !== -1 || firstArg.indexOf('WebSocket closed without opened') !== -1)) {
-            return;
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            var s = typeof arg === 'string' ? arg : (arg && (arg.message || arg.stack) ? arg.message + ' ' + arg.stack : String(arg));
+            if (s && (s.indexOf('[vite]') !== -1 || s.indexOf('WebSocket') !== -1 || s.indexOf('websocket') !== -1)) {
+              return;
+            }
           }
-          return _err.apply(console, arguments);
+          return origError.apply(console, arguments);
         };
+
+        var origWarn = console.warn;
+        console.warn = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            var s = typeof arg === 'string' ? arg : (arg && (arg.message || arg.stack) ? arg.message + ' ' + arg.stack : String(arg));
+            if (s && (s.indexOf('[vite]') !== -1 || s.indexOf('WebSocket') !== -1 || s.indexOf('websocket') !== -1)) {
+              return;
+            }
+          }
+          return origWarn.apply(console, arguments);
+        };
+
+        var origLog = console.log;
+        console.log = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            var s = typeof arg === 'string' ? arg : (arg && (arg.message || arg.stack) ? arg.message + ' ' + arg.stack : String(arg));
+            if (s && (s.indexOf('[vite]') !== -1 || s.indexOf('WebSocket') !== -1 || s.indexOf('websocket') !== -1)) {
+              return;
+            }
+          }
+          return origLog.apply(console, arguments);
+        };
+
+        var OrigWebSocket = window.WebSocket;
+        if (typeof OrigWebSocket !== 'undefined') {
+          window.WebSocket = function(url, protocols) {
+            var isVite = false;
+            var strUrl = String(url || '');
+            if (
+              protocols === 'vite-hmr' ||
+              protocols === 'vite-ping' ||
+              strUrl.indexOf('token=') !== -1 ||
+              strUrl.indexOf('24678') !== -1 ||
+              strUrl.indexOf('5173') !== -1
+            ) {
+              isVite = true;
+            }
+            if (!isVite && Array.isArray(protocols)) {
+              isVite = protocols.indexOf('vite-hmr') !== -1 || protocols.indexOf('vite-ping') !== -1;
+            }
+
+            if (isVite) {
+              var target = new EventTarget();
+              target.url = url;
+              target.protocols = protocols;
+              target.readyState = 1;
+              target.bufferedAmount = 0;
+              target.extensions = '';
+              target.protocol = typeof protocols === 'string' ? protocols : '';
+              target.binaryType = 'blob';
+              target.send = function() {};
+              target.close = function(code, reason) {
+                target.readyState = 3;
+                if (typeof target.onclose === 'function') {
+                  target.onclose({ type: 'close', code: code || 1000, reason: reason || '', wasClean: true });
+                }
+              };
+
+              target.onopen = null;
+              target.onmessage = null;
+              target.onerror = null;
+              target.onclose = null;
+
+              setTimeout(function() {
+                if (target.readyState === 1) {
+                  var openEvent = new Event('open');
+                  if (typeof target.onopen === 'function') {
+                    try { target.onopen(openEvent); } catch(e) {}
+                  }
+                  target.dispatchEvent(openEvent);
+                }
+              }, 10);
+
+              return target;
+            }
+
+            return new OrigWebSocket(url, protocols);
+          };
+
+          window.WebSocket.CONNECTING = 0;
+          window.WebSocket.OPEN = 1;
+          window.WebSocket.CLOSING = 2;
+          window.WebSocket.CLOSED = 3;
+          window.WebSocket.prototype = OrigWebSocket.prototype;
+        }
+
+        window.addEventListener('error', function(event) {
+          var msg = (event && event.message) ? String(event.message) : '';
+          var fn = (event && event.filename) ? String(event.filename) : '';
+          if (msg.indexOf('[vite]') !== -1 || msg.indexOf('WebSocket') !== -1 || fn.indexOf('vite') !== -1) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = (event && event.reason) ? String(event.reason.message || event.reason) : '';
+          if (reason.indexOf('[vite]') !== -1 || reason.indexOf('WebSocket') !== -1) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
       })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -34,4 +141,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -26,11 +26,15 @@ import {
   Activity,
   Award,
   Zap,
+  Smartphone,
+  Download,
+  Share2,
 } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
 import { useLanguage } from '../hooks/useLanguage.tsx';
 import { apiRequest } from '../utils/api.ts';
 import { ScanRecord, RiskLevel } from '../../shared/types.ts';
+import { PWAInstallButton } from '../components/PWAInstallButton.tsx';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -169,11 +173,50 @@ export const DashboardPage: React.FC = () => {
               <FileCheck2 className="w-4 h-4 text-[#E1B95A]" />
               <span>{t('nav_reports', 'Audit Reports Dossier')}</span>
             </motion.button>
+
+            <PWAInstallButton variant="hero" />
           </div>
         </div>
 
         {/* Subtle Watermark Art */}
         <ShieldCheck className="absolute right-4 -bottom-6 w-48 h-48 text-white/5 pointer-events-none group-hover:scale-105 transition-transform duration-500" />
+      </motion.div>
+
+      {/* 2.5 PWA Device Download & Buddy Share Home Banner */}
+      <motion.div
+        variants={cardVariants}
+        className="p-5 rounded-2xl bg-gradient-to-r from-white via-[#F8F5ED] to-white border border-[#063F3A]/20 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+      >
+        <div className="flex items-start gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-[#063F3A]/10 text-[#063F3A] flex items-center justify-center shrink-0 border border-[#063F3A]/15">
+            <Smartphone className="w-6 h-6 text-[#0B6B5E]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-[#063F3A]">
+                {t('pwa_banner_title', 'Download DocSure AI on Device / Mobile')}
+              </span>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#E1B95A]/25 text-[#8F6A15] border border-[#E1B95A]/40">
+                PWA • Offline Ready
+              </span>
+            </div>
+            <p className="text-xs text-[#657572] mt-0.5">
+              {t('pwa_banner_desc', 'Install for instant home-screen launch, full-screen offline inspection, camera acceleration, and one-tap buddy sharing.')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+          <PWAInstallButton variant="home" />
+          <button
+            type="button"
+            onClick={() => setCurrentView('pwa')}
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-black/5 border border-[#657572]/25 text-xs font-semibold text-[#063F3A] transition-colors flex items-center gap-1.5 shadow-2xs"
+          >
+            <Share2 className="w-3.5 h-3.5 text-[#E1B95A]" />
+            <span>PWA Module &amp; QR</span>
+          </button>
+        </div>
       </motion.div>
 
       {/* 3. Real-Time Forensic Health Metric Pills */}
@@ -233,7 +276,7 @@ export const DashboardPage: React.FC = () => {
       </motion.div>
 
       {/* 4. Quick Action Cards Grid with Framer Motion hover & tap states */}
-      <motion.div variants={cardVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <motion.div variants={cardVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <motion.button
           type="button"
           whileHover={{ y: -3, transition: { duration: 0.18 } }}
@@ -246,6 +289,23 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="text-xs font-bold text-[#102321]">{t('nav_scan', 'Screen Document')}</div>
           <div className="text-[11px] text-[#657572] mt-0.5">{t('nav_scan_desc', '7-phase multi-spectral forensic verification pipeline')}</div>
+        </motion.button>
+
+        <motion.button
+          type="button"
+          whileHover={{ y: -3, transition: { duration: 0.18 } }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setCurrentView('pwa')}
+          className="p-4 rounded-xl bg-[#F8F5ED] border border-[#063F3A]/20 hover:border-[#0B6B5E] hover:shadow-sm transition-all text-left shadow-xs group"
+        >
+          <div className="w-8 h-8 rounded-lg bg-[#063F3A] text-[#E1B95A] flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+            <Smartphone className="w-4 h-4" />
+          </div>
+          <div className="text-xs font-bold text-[#063F3A] flex items-center gap-1">
+            <span>{t('nav_pwa', 'Device App')}</span>
+            <span className="text-[9px] font-mono px-1 py-0.2 bg-[#E1B95A]/30 text-[#8F6A15] rounded font-bold">PWA</span>
+          </div>
+          <div className="text-[11px] text-[#657572] mt-0.5">{t('pwa_quick_desc', 'Download PWA on device & share QR with buddy')}</div>
         </motion.button>
 
         <motion.button

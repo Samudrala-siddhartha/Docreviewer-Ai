@@ -33,6 +33,8 @@ import {
   Camera,
   UploadCloud,
   Globe,
+  Smartphone,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
 import { UserRole } from '../../shared/types.ts';
@@ -129,6 +131,16 @@ export const SidebarNav: React.FC = () => {
         descKey: 'nav_evidence_desc',
         defaultDesc: 'Multi-spectral ELA overlays & bounding markers',
         badge: 'Live',
+      },
+      {
+        id: 'pwa',
+        labelKey: 'nav_pwa',
+        defaultLabel: 'Device App (PWA)',
+        category: 'OPERATIONS',
+        icon: Smartphone,
+        descKey: 'nav_pwa_desc',
+        defaultDesc: 'Download & install PWA on device, offline mode & buddy sharing',
+        badge: 'Install App',
       },
       {
         id: 'digilocker',
