@@ -4,6 +4,11 @@
  * Integrates Vite middleware in dev, production static serving in prod.
  */
 
+// If tsx injects __dirname as '.', remove it so plugins (like vite-plugin-pwa) load cleanly
+if ((globalThis as any).__dirname === '.') {
+  delete (globalThis as any).__dirname;
+}
+
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -54,7 +59,12 @@ async function startServer() {
   // Vite development middleware or production static files
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true, host: '0.0.0.0' },
+      server: {
+        middlewareMode: true,
+        host: '0.0.0.0',
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+        ws: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

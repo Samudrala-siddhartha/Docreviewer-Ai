@@ -45,11 +45,13 @@ import {
   Flame,
 } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
+import { useLanguage } from '../hooks/useLanguage.tsx';
 import { apiRequest } from '../utils/api.ts';
 import { DocumentType, ScanRecord, PipelinePhaseReport } from '../../shared/types.ts';
 import { SUPPORTED_DOCUMENTS, STANDARD_DISCLAIMER, BORDER_CHECKPOINT_SPECIFICATION } from '../../shared/constants.ts';
 import { DocSureLogo } from '../components/DocSureLogo.tsx';
 import { PhaseInspector } from '../components/PhaseInspector.tsx';
+import { IntelligentValidatorCard } from '../components/IntelligentValidatorCard.tsx';
 
 type PipelineStage =
   | 'IDLE'
@@ -66,6 +68,7 @@ type AspectRatioMode = 'ID_CARD' | 'PASSPORT' | 'CERTIFICATE';
 
 export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }> = ({ onScanCompleted }) => {
   const { setCurrentView, viewScanReport, viewScanEvidence } = useAuth();
+  const { t } = useLanguage();
   const [docType, setDocType] = useState<DocumentType>('AUTO_DETECT');
   const [uploadMode, setUploadMode] = useState<'FILE' | 'CAMERA' | 'DIGILOCKER' | 'SYNTHETIC'>('SYNTHETIC');
   const [executionMode, setExecutionMode] = useState<'CONTINUOUS' | 'STEP_BY_STEP'>('CONTINUOUS');
@@ -566,6 +569,9 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
       reader.onload = () => {
         setFilePreview(reader.result as string);
         setCapturedImageData(reader.result as string);
+        
+        // Auto-start scan immediately after file read finishes
+        setTimeout(() => handleContinuousScan(reader.result as string, firstFile.name), 100);
       };
       reader.readAsDataURL(firstFile);
 
@@ -592,6 +598,9 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
     reader.onload = () => {
       setFilePreview(reader.result as string);
       setCapturedImageData(reader.result as string);
+      
+      // Auto-start next file
+      setTimeout(() => handleContinuousScan(reader.result as string, nextFile.name), 100);
     };
     reader.readAsDataURL(nextFile);
     
@@ -599,7 +608,7 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
   };
 
   // Autonomous Continuous Execution
-  const handleContinuousScan = async () => {
+  const handleContinuousScan = async (overrideDataUrl?: string, overrideFileName?: string) => {
     setErrorMessage(null);
     setActiveScanResult(null);
 
@@ -615,13 +624,13 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
 
     try {
       const chosenScenario = uploadMode === 'SYNTHETIC' ? syntheticScenario : 'CLEAN_VERIFIED';
-      const effectiveDataUrl = filePreview || (uploadMode === 'SYNTHETIC' ? generateSimulatedCardCanvas(docType) : undefined);
+      const effectiveDataUrl = overrideDataUrl || filePreview || (uploadMode === 'SYNTHETIC' ? generateSimulatedCardCanvas(docType) : undefined);
       const base64Data = effectiveDataUrl && effectiveDataUrl.includes(',') ? effectiveDataUrl.split(',')[1] : undefined;
       const payload = {
         documentType: docType,
         scenario: chosenScenario,
         mockTamperScenario: chosenScenario,
-        fileName: selectedFileName,
+        fileName: overrideFileName || selectedFileName,
         fileData: effectiveDataUrl,
         fileBase64: base64Data,
         source: uploadMode === 'CAMERA' ? 'LIVE_CAMERA' : uploadMode === 'FILE' ? 'UPLOAD' : 'SYNTHETIC_BENCHMARK',
@@ -707,6 +716,14 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
     if (nextStep === 7) {
       setPipelineStage('DONE');
     }
+  };
+
+  const handleResetScan = () => {
+    setPipelineStage('IDLE');
+    setStepNumber(0);
+    setActiveScanResult(null);
+    setCapturedImageData(null);
+    setFilePreview(null);
   };
 
   const handleDownloadJSON = (scan: ScanRecord) => {
@@ -1952,10 +1969,10 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                           {isOriginal
                             ? 'ORIGINAL DOCUMENT CONFIRMED'
                             : isUnrelated
-                            ? 'NOT AN ORIGINAL DOCUMENT — DISQUALIFIED'
+                            ? t('status_rejected')
                             : isTampered
-                            ? 'TAMPERED / COUNTERFEIT DOCUMENT FLAGGED'
-                            : 'EVALUATION INCONCLUSIVE'}
+                            ? t('status_tampered')
+                            : t('status_inconclusive')}
                         </span>
                         <span
                           className={`text-xs font-mono px-3 py-1 rounded-full font-bold border flex items-center gap-1 ${
@@ -1995,7 +2012,7 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                         {isOriginal
                           ? `The presented document conforms to genuine issuing specifications (${activeScanResult.detectedCardType || activeScanResult.classifiedType}) with 100% forensic alignment.`
                           : isUnrelated
-                          ? `Specimen classified as ${activeScanResult.detectedCardType || 'a commercial/private card'}. Sovereign national credentials are required; private cards are strictly rejected.`
+                          ? t('unrelated_desc')
                           : isTampered
                           ? `Multiple forensic anomalies detected across visual, typographic, or cryptographic layers of ${activeScanResult.detectedCardType || activeScanResult.classifiedType}.`
                           : 'Image resolution, blur, or glare restricts definitive automated forensic evaluation.'}
@@ -2063,14 +2080,27 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                   </div>
                 </div>
 
+                {/* INTELLIGENT DOCUMENT VALIDATOR COMPONENT */}
+                <IntelligentValidatorCard
+                  validation={activeScanResult.intelligentValidation}
+                  isOriginal={activeScanResult.isOriginal}
+                  detectedCardType={activeScanResult.detectedCardType || activeScanResult.classifiedType}
+                  isOfficialGov={activeScanResult.isOfficialGovernmentDoc}
+                  onUploadNewDoc={handleResetScan}
+                />
+
                 {/* CANVAS-BASED HEATMAP EVIDENCE OVERLAY */}
                 <div className="bg-white rounded-xl border border-[#063F3A]/20 overflow-hidden shadow-2xs">
-                  <div className="p-4 border-b border-[#063F3A]/15 bg-[#F8F5ED] flex items-center justify-between">
+                  <div className="p-4 border-b border-[#063F3A]/15 flex items-center justify-between flex-wrap gap-3"
+                    style={{ backgroundColor: isOriginal ? '#F0FDF4' : isTampered || isUnrelated ? '#FEF2F2' : '#FEFCE8' }}
+                  >
                     <div className="flex items-center gap-2">
-                      <Flame className="w-5 h-5 text-[#C94A45]" />
+                      <Flame className={`w-5 h-5 ${isOriginal ? 'text-[#166534]' : isTampered || isUnrelated ? 'text-[#991B1B]' : 'text-[#854D0E]'}`} />
                       <div>
-                        <h4 className="font-bold text-[#063F3A] text-sm">Visual Evidence Heatmap</h4>
-                        <p className="text-[11px] text-[#657572]">Direct anomaly highlighting on provided source image</p>
+                        <h4 className={`font-bold text-sm ${isOriginal ? 'text-[#166534]' : isTampered || isUnrelated ? 'text-[#991B1B]' : 'text-[#854D0E]'}`}>
+                          {isOriginal ? 'Document is Safe' : isTampered || isUnrelated ? 'Document is Suspicious/Tampered' : 'Document requires manual review'}
+                        </h4>
+                        <p className="text-[11px] text-[#657572]">Visual Evidence Heatmap Analytics</p>
                       </div>
                     </div>
                   </div>
@@ -2090,7 +2120,7 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                             title: f.title,
                             region: f.region || { x: 20 + i * 15, y: 30 + i * 10, width: 25, height: 20 },
                             isFinding: true,
-                            label: `#${i + 1}`
+                            label: f.category || 'Anomaly'
                           })),
                           ...(activeScanResult.borderAudit?.checks || [])
                             .filter((c) => c.anomalyRegion && c.status === 'FLAGGED')
@@ -2099,12 +2129,12 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                               title: c.name,
                               region: c.anomalyRegion!,
                               isFinding: false,
-                              label: 'FLAG'
+                              label: 'Border Anomaly'
                             }))
                         ].map((anomaly, idx) => (
                           <div
                             key={anomaly.id}
-                            className="absolute rounded-full border-4 border-[#C94A45] bg-[#C94A45]/10 ring-4 ring-white shadow-xl z-20 flex items-center justify-center animate-pulse group cursor-crosshair hover:bg-[#C94A45]/30 hover:scale-105 transition-all"
+                            className="absolute z-20 flex items-center justify-center group"
                             style={{
                               left: `${anomaly.region.x}%`,
                               top: `${anomaly.region.y}%`,
@@ -2112,20 +2142,15 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                               height: `${anomaly.region.height}%`,
                             }}
                           >
-                            {/* Noticeable Arrow pointing at the anomaly */}
-                            <div className="absolute -left-12 sm:-left-16 top-1/2 -translate-y-1/2 flex items-center">
-                              <span className="w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center shadow-xs text-white bg-[#C94A45] z-30 shrink-0 group-hover:scale-110 transition-transform">
-                                {idx + 1}
-                              </span>
-                              <ChevronRight className="w-6 h-6 text-[#C94A45] shrink-0" strokeWidth={4} />
-                            </div>
+                            {/* The Highlight Box */}
+                            <div className="absolute inset-0 rounded border-2 border-[#C94A45] bg-[#C94A45]/20 shadow-xl pointer-events-none" />
                             
-                            {/* Hover Tooltip/Label */}
-                            <div className="absolute top-[110%] left-1/2 -translate-x-1/2 w-max max-w-[200px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
-                              <div className="bg-[#102321] text-white text-[10px] font-bold p-2.5 rounded-lg shadow-2xl border border-white/10 flex flex-col gap-1">
-                                <span className="text-[#C94A45] uppercase tracking-wider text-[9px]">{anomaly.label} Detected</span>
-                                <span className="whitespace-normal leading-tight">{anomaly.title}</span>
-                              </div>
+                            {/* Static Callout Label (always visible) */}
+                            <div className="absolute -right-32 top-1/2 -translate-y-1/2 flex items-center w-max pointer-events-none">
+                               <div className="w-8 h-[1px] bg-[#C94A45]" />
+                               <div className="bg-[#102321]/90 backdrop-blur text-white text-[9px] font-bold px-2 py-1 rounded border border-[#C94A45]/50 shadow-md">
+                                 {anomaly.title}
+                               </div>
                             </div>
                           </div>
                         ))}

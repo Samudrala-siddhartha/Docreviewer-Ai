@@ -19,6 +19,7 @@ import {
   INITIAL_MODELS,
   INITIAL_DATASETS,
 } from '../../shared/constants.ts';
+import { intelligentDocumentValidator } from '../services/intelligentDocumentValidator.ts';
 import {
   IUserRepository,
   ISessionRepository,
@@ -200,6 +201,21 @@ class InMemoryDatabase {
         recommendation: 'Standard automated workflow acceptable. Proceed with standard verification.',
         disclaimer: 'AI-assisted screening result. This is not a definitive authenticity determination.',
       },
+      intelligentValidation: intelligentDocumentValidator.validate({
+        documentType: 'AADHAAR',
+        classifiedType: 'AADHAAR',
+        detectedCardType: 'UIDAI Smart/PVC Aadhaar Card',
+        isOfficialGovernmentDoc: true,
+        isOriginal: true,
+        qualityScore: 88,
+        extractedFields: [
+          { field: 'name', label: 'Full Name', value: 'Aarav Sharma', confidence: 0.98, matchesReferenceRule: true },
+          { field: 'dob', label: 'Date of Birth', value: '14/08/1992', confidence: 0.97, matchesReferenceRule: true },
+          { field: 'id_number', label: 'Aadhaar Number', value: 'XXXX XXXX 4192', confidence: 0.99, matchesReferenceRule: true },
+        ],
+        findings: [],
+        scenario: 'CLEAN_VERIFIED',
+      }),
     };
 
     const sampleScan2: ScanRecord = {
@@ -306,6 +322,35 @@ class InMemoryDatabase {
         recommendation: 'Manual verification recommended. Do not approve automated onboarding without secondary proof.',
         disclaimer: 'AI-assisted screening result. This is not a definitive authenticity determination.',
       },
+      intelligentValidation: intelligentDocumentValidator.validate({
+        documentType: 'PAN',
+        classifiedType: 'PAN',
+        detectedCardType: 'Income Tax Dept PAN Card',
+        isOfficialGovernmentDoc: true,
+        isOriginal: false,
+        qualityScore: 71,
+        extractedFields: [
+          { field: 'name', label: 'Full Name', value: 'Rahul K. Verma', confidence: 0.94, matchesReferenceRule: true },
+          { field: 'dob', label: 'Date of Birth', value: '05/11/1985', confidence: 0.72, matchesReferenceRule: false },
+          { field: 'id_number', label: 'Permanent Account Number', value: 'ABCDE1234F', confidence: 0.96, matchesReferenceRule: true },
+        ],
+        findings: [
+          {
+            id: 'find_tamper_01',
+            category: 'VISUAL_FORENSICS',
+            severity: 'HIGH',
+            title: 'Spliced Date of Birth Field',
+            description: 'Non-uniform compression and mismatched font baseline identified in DOB region.',
+            evidenceType: 'ELA_RESIDUAL',
+            confidence: 0.91,
+            modelVersion: 'gemini-3.8-flash',
+            explanation: 'Error Level Analysis reveals high quantization variance at the DOB field.',
+          },
+        ],
+        scenario: 'PAN_DATE_TAMPERED',
+        isCodeMismatch: true,
+        isMetadataEdited: true,
+      }),
       manualReviewStatus: 'NEEDS_MORE_INFORMATION',
       manualReviewNotes: 'Flagged for reviewer inspection. Requested applicant provide original DigiLocker issued PDF or physically inspect card.',
       reviewerId: 'usr_reviewer_02',

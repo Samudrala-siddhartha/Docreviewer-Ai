@@ -22,6 +22,7 @@ import { MockMalwareScanner } from '../services/malwareScanner.ts';
 import { MockDigiLockerService } from '../services/digiLockerService.ts';
 import { RiskEngine } from '../services/riskEngine.ts';
 import { GeminiService } from '../services/geminiService.ts';
+import { intelligentDocumentValidator } from '../services/intelligentDocumentValidator.ts';
 import { requireAuth, requireRole, asyncHandler } from '../middleware/security.ts';
 import {
   ApiResponse,
@@ -990,6 +991,42 @@ export function createApiRouter(deps: ApiRouterDependencies = {}): Router {
         ],
         mockIntegrationSource: source === 'DIGILOCKER' ? 'DIGILOCKER_DEMO' : 'NONE',
         borderAudit,
+        intelligentValidation: intelligentDocumentValidator.validate({
+          documentType: documentType as DocumentType,
+          classifiedType: classifiedDocType,
+          detectedCardType: inspection.detectedCardType,
+          isOfficialGovernmentDoc: !isUnrelatedScenario,
+          isOriginal,
+          qualityScore,
+          extractedFields: inspection.extractedFields?.map((f) => ({
+            field: f.field,
+            label: f.label,
+            value: f.value,
+            confidence: f.confidence,
+            matchesReferenceRule: true,
+          })) || [],
+          findings,
+          securityFeatures: [
+            {
+              featureName: 'Sovereign Emblem / Ashoka Crest',
+              status: isUnrelatedScenario ? 'ABSENT' : 'PRESENT',
+              confidence: 0.98,
+              notes: isUnrelatedScenario ? 'No statutory government emblem found' : 'Emblem verified against master template',
+              isCrucial: true,
+            },
+            {
+              featureName: 'Anti-Copy Guilloche Wave Substrate',
+              status: isUnrelatedScenario ? 'ABSENT' : (isTamperedBorderScenario ? 'ANOMALOUS' : 'PRESENT'),
+              confidence: 0.95,
+              notes: isUnrelatedScenario ? 'Commercial solid or simple graphic background' : 'Continuous fine-line guilloche',
+              isCrucial: true,
+            },
+          ],
+          scenario: effectiveScenario,
+          isCodeMismatch,
+          isMetadataEdited,
+          fileName: cleanFileName,
+        }),
       };
 
       const created = await scanRepo.create(scanRecord);

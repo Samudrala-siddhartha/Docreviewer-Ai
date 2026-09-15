@@ -32,17 +32,21 @@ import {
   ArrowRight,
   Camera,
   UploadCloud,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
 import { UserRole } from '../../shared/types.ts';
 import { DocSureLogo } from './DocSureLogo.tsx';
+import { useLanguage, languagesList } from '../hooks/useLanguage.tsx';
 
 interface NavItem {
   id: string;
-  label: string;
+  labelKey: string;
+  defaultLabel: string;
   category: 'OPERATIONS' | 'GOVERNANCE' | 'SYSTEM';
   icon: React.ComponentType<{ className?: string }>;
-  description: string;
+  descKey: string;
+  defaultDesc: string;
   badge?: string;
   highlight?: boolean;
   requiredRoles?: UserRole[];
@@ -61,6 +65,7 @@ export const SidebarNav: React.FC = () => {
     logout,
   } = useAuth();
 
+  const { language, setLanguage, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,81 +84,101 @@ export const SidebarNav: React.FC = () => {
     () => [
       {
         id: 'home',
-        label: 'Executive Dashboard',
+        labelKey: 'nav_home',
+        defaultLabel: 'Executive Dashboard',
         category: 'OPERATIONS',
         icon: LayoutDashboard,
-        description: 'System health, real-time metrics & risk distribution',
+        descKey: 'nav_home_desc',
+        defaultDesc: 'System health, real-time metrics & risk distribution',
       },
       {
         id: 'scan',
-        label: 'Screen Document',
+        labelKey: 'nav_scan',
+        defaultLabel: 'Screen Document',
         category: 'OPERATIONS',
         icon: ScanLine,
-        description: '7-phase multi-spectral forensic verification pipeline',
+        descKey: 'nav_scan_desc',
+        defaultDesc: '7-phase multi-spectral forensic verification pipeline',
         highlight: true,
         badge: '7 Phases',
       },
       {
         id: 'history',
-        label: 'Scan Archives',
+        labelKey: 'nav_history',
+        defaultLabel: 'Scan Archives',
         category: 'OPERATIONS',
         icon: History,
-        description: 'Chronological audit records & verified metadata',
+        descKey: 'nav_history_desc',
+        defaultDesc: 'Chronological audit records & verified metadata',
       },
       {
         id: 'reports',
-        label: 'Forensic Reports Dossier',
+        labelKey: 'nav_reports',
+        defaultLabel: 'Forensic Reports Dossier',
         category: 'OPERATIONS',
         icon: FileCheck2,
-        description: 'Downloadable PDF audit dossiers & legal disclaimers',
+        descKey: 'nav_reports_desc',
+        defaultDesc: 'Downloadable PDF audit dossiers & legal disclaimers',
       },
       {
         id: 'evidence',
-        label: 'Evidence Heatmap Viewer',
+        labelKey: 'nav_evidence',
+        defaultLabel: 'Evidence Heatmap Viewer',
         category: 'OPERATIONS',
         icon: Layers,
-        description: 'Multi-spectral ELA overlays & bounding markers',
+        descKey: 'nav_evidence_desc',
+        defaultDesc: 'Multi-spectral ELA overlays & bounding markers',
         badge: 'Live',
       },
       {
         id: 'digilocker',
-        label: 'DigiLocker Sandbox',
+        labelKey: 'nav_digilocker',
+        defaultLabel: 'DigiLocker Sandbox',
         category: 'OPERATIONS',
         icon: FolderLock,
-        description: 'Government repository credential ingestion demo',
+        descKey: 'nav_digilocker_desc',
+        defaultDesc: 'Government repository credential ingestion demo',
         badge: 'Sandbox',
       },
       {
         id: 'reviewer',
-        label: 'Reviewer Case Desk',
+        labelKey: 'nav_reviewer',
+        defaultLabel: 'Reviewer Case Desk',
         category: 'GOVERNANCE',
         icon: ClipboardList,
-        description: 'Dual-custody adjudications for high-risk flags',
+        descKey: 'nav_reviewer_desc',
+        defaultDesc: 'Dual-custody adjudications for high-risk flags',
         badge: 'Desk',
         requiredRoles: ['REVIEWER', 'ADMIN'],
       },
       {
         id: 'admin',
-        label: 'Admin Governance & Audit',
+        labelKey: 'nav_admin',
+        defaultLabel: 'Admin Governance & Audit',
         category: 'GOVERNANCE',
         icon: ShieldAlert,
-        description: 'Cryptographic tamper logs, API keys & model drift',
+        descKey: 'nav_admin_desc',
+        defaultDesc: 'Cryptographic tamper logs, API keys & model drift',
         badge: 'Gov',
         requiredRoles: ['ADMIN'],
       },
       {
         id: 'support',
-        label: 'Citizen Dispute Tickets',
+        labelKey: 'nav_support',
+        defaultLabel: 'Citizen Dispute Tickets',
         category: 'SYSTEM',
         icon: LifeBuoy,
-        description: 'Statutory contestations & appeal escalation',
+        descKey: 'nav_support_desc',
+        defaultDesc: 'Statutory contestations & appeal escalation',
       },
       {
         id: 'profile',
-        label: 'Security & Privacy Desk',
+        labelKey: 'nav_profile',
+        defaultLabel: 'Security & Privacy Desk',
         category: 'SYSTEM',
         icon: UserCog,
-        description: '2FA authentication, credentials & privacy posture',
+        descKey: 'nav_profile_desc',
+        defaultDesc: '2FA authentication, credentials & privacy posture',
       },
     ],
     []
@@ -163,13 +188,12 @@ export const SidebarNav: React.FC = () => {
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return allNavItems;
     const q = searchQuery.toLowerCase();
-    return allNavItems.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-    );
-  }, [allNavItems, searchQuery]);
+    return allNavItems.filter((item) => {
+      const label = t(item.labelKey, item.defaultLabel).toLowerCase();
+      const desc = t(item.descKey, item.defaultDesc).toLowerCase();
+      return label.includes(q) || desc.includes(q) || item.category.toLowerCase().includes(q);
+    });
+  }, [allNavItems, searchQuery, t]);
 
   // Group filtered items
   const operations = filteredItems.filter((i) => i.category === 'OPERATIONS');
@@ -192,6 +216,8 @@ export const SidebarNav: React.FC = () => {
   const renderNavButton = (item: NavItem) => {
     const Icon = item.icon;
     const isActive = currentView === item.id;
+    const translatedLabel = t(item.labelKey, item.defaultLabel);
+    const translatedDesc = t(item.descKey, item.defaultDesc);
 
     return (
       <button
@@ -221,14 +247,14 @@ export const SidebarNav: React.FC = () => {
 
           <div className="min-w-0">
             <div className="truncate font-semibold text-xs leading-snug">
-              {item.label}
+              {translatedLabel}
             </div>
             <div
               className={`truncate text-[10px] leading-none mt-0.5 ${
                 isActive ? 'text-white/70' : 'text-[#657572]'
               }`}
             >
-              {item.description}
+              {translatedDesc}
             </div>
           </div>
         </div>
@@ -266,10 +292,10 @@ export const SidebarNav: React.FC = () => {
           </div>
           <div className="min-w-0">
             <div className="font-serif font-bold text-xs text-[#063F3A] truncate">
-              DocSure Menu
+              {t('app_title', 'DocSure AI')}
             </div>
             <div className="text-[10px] text-[#657572] font-mono truncate">
-              Forensic Navigation Desk
+              {t('cat_operations', 'Forensic Navigation')}
             </div>
           </div>
         </div>
@@ -303,6 +329,32 @@ export const SidebarNav: React.FC = () => {
         </div>
       </div>
 
+      {/* Language Quick-Switch Bar inside Sidebar */}
+      <div className="px-3 py-2 border-b border-[#657572]/10 bg-[#F8F5ED]/20 shrink-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] font-mono font-semibold text-[#657572] flex items-center gap-1">
+            <Globe className="w-3 h-3 text-[#0B6B5E]" /> {t('language_label', 'Language')}
+          </span>
+          <span className="text-[9px] font-mono text-[#0B6B5E] font-bold uppercase">{language}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-1">
+          {languagesList.map((lang) => (
+            <button
+              key={lang.code}
+              type="button"
+              onClick={() => setLanguage(lang.code)}
+              className={`py-1 px-1.5 rounded text-[11px] font-medium transition-all text-center border ${
+                language === lang.code
+                  ? 'bg-[#063F3A] text-white border-[#063F3A] font-bold shadow-xs'
+                  : 'bg-white text-[#657572] border-[#657572]/20 hover:border-[#0B6B5E] hover:text-[#063F3A]'
+              }`}
+            >
+              {lang.nativeName}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* 2. Quick Search & Instant Filter Bar */}
       <div className="p-3 border-b border-[#657572]/15 bg-white shrink-0 space-y-2">
         <div className="relative">
@@ -311,7 +363,7 @@ export const SidebarNav: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tools, modules, desk..."
+            placeholder={t('menu_search_placeholder', 'Search tools, modules, desk...')}
             className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-[#657572]/25 focus:outline-none focus:border-[#0B6B5E] focus:ring-1 focus:ring-[#0B6B5E] bg-[#F8F5ED]/40 placeholder:text-[#657572]/60"
           />
           {searchQuery && (
@@ -333,7 +385,7 @@ export const SidebarNav: React.FC = () => {
         >
           <div className="flex items-center gap-2">
             <ScanLine className="w-4 h-4 text-[#E1B95A] group-hover:scale-110 transition-transform" />
-            <span>Screen Document Now</span>
+            <span>{t('screen_now_cta', 'Screen Document Now')}</span>
           </div>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/20 text-[#E1B95A]">
             7-Phase
@@ -348,7 +400,7 @@ export const SidebarNav: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center justify-between px-2 mb-1.5">
               <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#657572]">
-                Forensic Operations
+                {t('cat_operations', 'Forensic Operations')}
               </span>
               <span className="text-[10px] font-mono text-[#657572]/60">
                 {operations.length}
@@ -363,7 +415,7 @@ export const SidebarNav: React.FC = () => {
           <div className="space-y-1 pt-1 border-t border-[#657572]/15">
             <div className="flex items-center justify-between px-2 mb-1.5 mt-2">
               <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#657572]">
-                Adjudication & Governance
+                {t('cat_governance', 'Adjudication & Governance')}
               </span>
               <span className="text-[10px] font-mono text-[#657572]/60">
                 {governance.length}
@@ -378,7 +430,7 @@ export const SidebarNav: React.FC = () => {
           <div className="space-y-1 pt-1 border-t border-[#657572]/15">
             <div className="flex items-center justify-between px-2 mb-1.5 mt-2">
               <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#657572]">
-                Citizen Desk & Security
+                {t('cat_system', 'Citizen Desk & Security')}
               </span>
               <span className="text-[10px] font-mono text-[#657572]/60">
                 {system.length}
@@ -392,7 +444,7 @@ export const SidebarNav: React.FC = () => {
         <div className="p-3 bg-[#F8F5ED] border border-[#657572]/20 rounded-xl space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#063F3A] flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#C89B3C]" /> SIH Evaluation Role
+              <Sparkles className="w-3 h-3 text-[#C89B3C]" /> {t('sih_persona', 'SIH Evaluation Role')}
             </span>
             <span className="text-[10px] font-mono text-[#0B6B5E] font-semibold">
               {user?.role || 'GUEST'}
@@ -402,6 +454,7 @@ export const SidebarNav: React.FC = () => {
           <div className="grid grid-cols-3 gap-1.5">
             {(['USER', 'REVIEWER', 'ADMIN'] as UserRole[]).map((r) => {
               const isActive = user?.role === r;
+              const roleName = r === 'USER' ? `👤 ${t('role_user', 'User')}` : r === 'REVIEWER' ? `🔍 ${t('role_reviewer', 'Review')}` : `🛡️ ${t('role_admin', 'Admin')}`;
               return (
                 <button
                   key={r}
@@ -413,7 +466,7 @@ export const SidebarNav: React.FC = () => {
                       : 'bg-white text-[#657572] border-[#657572]/20 hover:border-[#0B6B5E] hover:text-[#063F3A]'
                   }`}
                 >
-                  {r === 'USER' ? '👤 User' : r === 'REVIEWER' ? '🔍 Review' : '🛡️ Admin'}
+                  {roleName}
                 </button>
               );
             })}
@@ -425,12 +478,12 @@ export const SidebarNav: React.FC = () => {
           <div className="flex items-center justify-between text-[11px] font-semibold text-[#063F3A]">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#218A68] animate-pulse" />
-              <span>Ephemeral RAM Sandbox</span>
+              <span>{t('ephemeral_ram', 'Ephemeral RAM Sandbox')}</span>
             </span>
-            <span className="text-[10px] font-mono text-[#218A68] font-bold">ACTIVE</span>
+            <span className="text-[10px] font-mono text-[#218A68] font-bold">{t('active_status', 'ACTIVE')}</span>
           </div>
           <p className="text-[10px] text-[#657572] leading-tight">
-            Zero-retention memory purge boundary active (15m TTL buffer). No raw biometrics stored.
+            {t('zero_retention_desc', 'Zero-retention memory purge boundary active (15m TTL buffer). No raw biometrics stored.')}
           </p>
         </div>
       </div>
@@ -456,7 +509,7 @@ export const SidebarNav: React.FC = () => {
             <button
               type="button"
               onClick={logout}
-              title="Sign Out"
+              title={t('sign_out', 'Sign Out')}
               className="p-1.5 rounded-lg text-[#657572] hover:text-[#C94A45] hover:bg-[#C94A45]/10 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -468,7 +521,7 @@ export const SidebarNav: React.FC = () => {
             onClick={() => handleItemClick('login')}
             className="w-full py-2 bg-[#063F3A] text-white text-xs font-semibold rounded-xl hover:bg-[#0B6B5E] transition-colors text-center"
           >
-            Sign In to Desk
+            {t('sign_in', 'Sign In to Desk')}
           </button>
         )}
 

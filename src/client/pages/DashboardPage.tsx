@@ -28,6 +28,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
+import { useLanguage } from '../hooks/useLanguage.tsx';
 import { apiRequest } from '../utils/api.ts';
 import { ScanRecord, RiskLevel } from '../../shared/types.ts';
 
@@ -53,6 +54,7 @@ const cardVariants = {
 
 export const DashboardPage: React.FC = () => {
   const { user, setCurrentView, viewScanReport, viewScanEvidence } = useAuth();
+  const { t } = useLanguage();
   const [recentScans, setRecentScans] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,22 +71,22 @@ export const DashboardPage: React.FC = () => {
 
   const riskBadges: Record<RiskLevel, { label: string; style: string; icon: React.ComponentType<{ className?: string }> }> = {
     LOW_RISK: {
-      label: 'LOW RISK',
+      label: t('LOW_RISK', 'LOW RISK'),
       style: 'bg-[#218A68]/15 text-[#218A68] border-[#218A68]/30',
       icon: CheckCircle2,
     },
     MEDIUM_RISK: {
-      label: 'MEDIUM RISK',
+      label: t('MEDIUM_RISK', 'MEDIUM RISK'),
       style: 'bg-[#C58A25]/15 text-[#8F6A15] border-[#C58A25]/30',
       icon: AlertTriangle,
     },
     HIGH_RISK: {
-      label: 'HIGH RISK',
+      label: t('HIGH_RISK', 'HIGH RISK'),
       style: 'bg-[#C94A45]/15 text-[#A5342F] border-[#C94A45]/30',
       icon: AlertTriangle,
     },
     INCONCLUSIVE: {
-      label: 'INCONCLUSIVE',
+      label: t('INCONCLUSIVE', 'INCONCLUSIVE'),
       style: 'bg-[#657572]/15 text-[#657572] border-[#657572]/30',
       icon: Info,
     },
@@ -108,21 +110,21 @@ export const DashboardPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-[#063F3A] font-serif">
-              Welcome, {user?.name || 'Operator'}
+              {t('welcome', 'Welcome')}, {user?.name || 'Operator'}
             </h1>
             <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#063F3A]/10 text-[#063F3A] font-semibold">
               {user?.role}
             </span>
           </div>
           <p className="text-xs text-[#657572] mt-0.5">
-            DocSure AI Multi-Signal Forensic Screening Engine • Zero Raw Document Retention
+            {t('app_subtitle', 'Advanced Identity Document Screening & Border Intelligence System')} • {t('zero_retention', 'Zero Raw Document Retention')}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#218A68]/10 text-[#218A68] rounded-xl border border-[#218A68]/20 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#218A68] animate-pulse" />
-            <span>Forensics Engine Active</span>
+            <span>{t('forensic_active', 'Forensics Engine Active')}</span>
           </div>
         </div>
       </motion.div>
@@ -136,14 +138,13 @@ export const DashboardPage: React.FC = () => {
         <div className="relative z-10 max-w-xl space-y-3">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white text-[11px] font-mono backdrop-blur border border-white/10">
             <Sparkles className="w-3 h-3 text-[#E1B95A]" />
-            <span>7-Phase Multi-Signal Pipeline</span>
+            <span>{t('7_phase_pipeline', '7-Phase Multi-Signal Pipeline')}</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold font-serif leading-tight">
-            Screen a Document with Verified Forensic Confidence
+            {t('hero_headline', 'Screen a Document with Verified Forensic Confidence')}
           </h2>
           <p className="text-xs sm:text-sm text-white/80 leading-relaxed">
-            Upload an Indian ID, passport, or certificate to analyze optical typography,
-            detect localized editing artifacts with Error Level Analysis, and cross-validate QR cryptographic digests.
+            {t('hero_subtext', 'Upload an Indian ID, passport, or certificate to analyze optical typography, detect localized editing artifacts with Error Level Analysis, and cross-validate QR cryptographic digests.')}
           </p>
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <motion.button
@@ -154,7 +155,7 @@ export const DashboardPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E1B95A] text-[#063F3A] font-semibold text-xs hover:bg-[#C89B3C] hover:text-white transition-all shadow-sm"
             >
               <ScanLine className="w-4 h-4" />
-              <span>Start New Screening</span>
+              <span>{t('start_screening', 'Start New Screening')}</span>
               <ChevronRight className="w-4 h-4" />
             </motion.button>
 
@@ -166,7 +167,7 @@ export const DashboardPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 text-white font-semibold text-xs hover:bg-white/25 transition-all border border-white/20"
             >
               <FileCheck2 className="w-4 h-4 text-[#E1B95A]" />
-              <span>Audit Reports Dossier</span>
+              <span>{t('nav_reports', 'Audit Reports Dossier')}</span>
             </motion.button>
           </div>
         </div>
@@ -179,7 +180,7 @@ export const DashboardPage: React.FC = () => {
       <motion.div variants={cardVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-3.5 bg-white rounded-xl border border-[#657572]/15 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-[#657572] text-[11px]">
-            <span>Verification Integrity</span>
+            <span>{t('dash_stat_success', 'Verification Success Rate')}</span>
             <Award className="w-3.5 h-3.5 text-[#218A68]" />
           </div>
           <div className="text-lg font-bold font-serif text-[#063F3A]">
@@ -187,13 +188,13 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="text-[10px] text-[#218A68] font-mono flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
-            <span>High Fidelity Confidence</span>
+            <span>{t('high_fidelity', 'High Fidelity Confidence')}</span>
           </div>
         </div>
 
         <div className="p-3.5 bg-white rounded-xl border border-[#657572]/15 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-[#657572] text-[11px]">
-            <span>Pipeline Latency</span>
+            <span>{t('dash_stat_latency', 'Pipeline Inference Latency')}</span>
             <Zap className="w-3.5 h-3.5 text-[#E1B95A]" />
           </div>
           <div className="text-lg font-bold font-serif text-[#063F3A]">
@@ -206,20 +207,20 @@ export const DashboardPage: React.FC = () => {
 
         <div className="p-3.5 bg-white rounded-xl border border-[#657572]/15 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-[#657572] text-[11px]">
-            <span>Active Memory TTL</span>
+            <span>{t('dash_stat_purge', 'Ephemeral Buffer TTL')}</span>
             <Lock className="w-3.5 h-3.5 text-[#0B6B5E]" />
           </div>
           <div className="text-lg font-bold font-serif text-[#063F3A]">
             15m
           </div>
           <div className="text-[10px] text-[#218A68] font-mono">
-            Zero-Retention RAM Isolation
+            {t('zero_retention', 'Zero-Retention Ephemeral Storage')}
           </div>
         </div>
 
         <div className="p-3.5 bg-white rounded-xl border border-[#657572]/15 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-[#657572] text-[11px]">
-            <span>Supported Standards</span>
+            <span>{t('dash_stat_standards', 'National Standards Aligned')}</span>
             <ShieldCheck className="w-3.5 h-3.5 text-[#063F3A]" />
           </div>
           <div className="text-lg font-bold font-serif text-[#063F3A]">
@@ -243,8 +244,8 @@ export const DashboardPage: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-[#063F3A]/10 text-[#063F3A] flex items-center justify-center mb-2 group-hover:bg-[#063F3A] group-hover:text-[#E1B95A] transition-colors">
             <ScanLine className="w-4 h-4" />
           </div>
-          <div className="text-xs font-bold text-[#102321]">Screen Document</div>
-          <div className="text-[11px] text-[#657572] mt-0.5">Camera capture & multi-spectral test</div>
+          <div className="text-xs font-bold text-[#102321]">{t('nav_scan', 'Screen Document')}</div>
+          <div className="text-[11px] text-[#657572] mt-0.5">{t('nav_scan_desc', '7-phase multi-spectral forensic verification pipeline')}</div>
         </motion.button>
 
         <motion.button
@@ -257,8 +258,8 @@ export const DashboardPage: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-[#0B6B5E]/10 text-[#0B6B5E] flex items-center justify-center mb-2 group-hover:bg-[#0B6B5E] group-hover:text-white transition-colors">
             <FileCheck2 className="w-4 h-4" />
           </div>
-          <div className="text-xs font-bold text-[#102321]">Audit Reports</div>
-          <div className="text-[11px] text-[#657572] mt-0.5">Downloadable PDF & JSON dossiers</div>
+          <div className="text-xs font-bold text-[#102321]">{t('nav_reports', 'Audit Reports')}</div>
+          <div className="text-[11px] text-[#657572] mt-0.5">{t('nav_reports_desc', 'Downloadable PDF audit dossiers & legal disclaimers')}</div>
         </motion.button>
 
         <motion.button
@@ -272,10 +273,10 @@ export const DashboardPage: React.FC = () => {
             <Layers className="w-4 h-4" />
           </div>
           <div className="text-xs font-bold text-[#102321] flex items-center gap-1">
-            <span>Evidence Viewer</span>
+            <span>{t('nav_evidence', 'Evidence Viewer')}</span>
             <span className="text-[9px] font-mono px-1 py-0.2 bg-[#218A68]/20 text-[#218A68] rounded">ELA</span>
           </div>
-          <div className="text-[11px] text-[#657572] mt-0.5">Spatial bounding & tamper heatmaps</div>
+          <div className="text-[11px] text-[#657572] mt-0.5">{t('nav_evidence_desc', 'Multi-spectral ELA overlays & bounding markers')}</div>
         </motion.button>
 
         <motion.button
@@ -288,8 +289,8 @@ export const DashboardPage: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-[#3E78A8]/15 text-[#3E78A8] flex items-center justify-center mb-2 group-hover:bg-[#3E78A8] group-hover:text-white transition-colors">
             <History className="w-4 h-4" />
           </div>
-          <div className="text-xs font-bold text-[#102321]">Scan Archive</div>
-          <div className="text-[11px] text-[#657572] mt-0.5">Audit past screening logs</div>
+          <div className="text-xs font-bold text-[#102321]">{t('nav_history', 'Scan Archives')}</div>
+          <div className="text-[11px] text-[#657572] mt-0.5">{t('nav_history_desc', 'Chronological audit records & verified metadata')}</div>
         </motion.button>
       </motion.div>
 
@@ -302,24 +303,24 @@ export const DashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-[#063F3A]">Recent Document Screenings</h3>
-              <p className="text-[11px] text-[#657572]">Empirical risk indicators from latest runs</p>
+              <h3 className="text-sm font-bold text-[#063F3A]">{t('recent_verifications', 'Recent Document Screenings')}</h3>
+              <p className="text-[11px] text-[#657572]">{t('recent_verifications_sub', 'Empirical risk indicators from latest runs')}</p>
             </div>
             <button
               type="button"
               onClick={() => setCurrentView('history')}
               className="text-xs font-semibold text-[#0B6B5E] hover:underline flex items-center gap-1"
             >
-              <span>View All</span>
+              <span>{t('view_all_history', 'View All')}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {loading ? (
-            <div className="py-8 text-center text-xs text-[#657572]">Loading recent scans...</div>
+            <div className="py-8 text-center text-xs text-[#657572]">{t('loading', 'Loading recent scans...')}</div>
           ) : recentScans.length === 0 ? (
             <div className="py-8 text-center text-xs text-[#657572] border border-dashed rounded-xl border-[#657572]/30">
-              No recent scans found. Start a new screening to see evidence outputs.
+              {t('no_scans_found', 'No recent scans found. Start a new screening to see evidence outputs.')}
             </div>
           ) : (
             <div className="divide-y divide-[#657572]/15">
@@ -338,17 +339,17 @@ export const DashboardPage: React.FC = () => {
                   >
                     <div className="space-y-0.5 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-[#102321]">{scan.documentType}</span>
+                        <span className="font-semibold text-xs text-[#102321]">{t(scan.documentType, scan.documentType)}</span>
                         <span className="font-mono text-[10px] text-[#657572]">#{scan.id}</span>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-[#657572]">
                         <Clock className="w-3 h-3" />
                         <span>{new Date(scan.createdAt).toLocaleDateString()}</span>
                         <span>•</span>
-                        <span>{scan.findings.length} forensic marker(s)</span>
+                        <span>{scan.findings.length} {t('forensic_markers', 'forensic marker(s)')}</span>
                         <span>•</span>
                         <span className="font-mono text-[10px] text-[#0B6B5E]">
-                          {Math.round((scan.result?.confidence || 0.9) * 100)}% conf
+                          {Math.round((scan.result?.confidence || 0.9) * 100)}% {t('confidence', 'conf')}
                         </span>
                       </div>
                     </div>
@@ -360,10 +361,10 @@ export const DashboardPage: React.FC = () => {
                           e.stopPropagation();
                           viewScanEvidence(scan.id);
                         }}
-                        title="View Evidence Heatmap"
+                        title={t('view_heatmap', 'View Evidence Heatmap')}
                         className="hidden sm:inline-flex text-[10px] font-mono px-2 py-1 rounded bg-[#063F3A]/5 text-[#063F3A] hover:bg-[#063F3A]/10 border border-[#063F3A]/15 font-semibold"
                       >
-                        Evidence
+                        {t('evidence_btn', 'Evidence')}
                       </button>
 
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1 ${badge.style}`}>
@@ -382,8 +383,7 @@ export const DashboardPage: React.FC = () => {
           <div className="p-3 bg-[#F8F5ED] rounded-xl border border-[#657572]/15 text-[11px] text-[#657572] leading-relaxed flex items-start gap-2">
             <Info className="w-4 h-4 text-[#0B6B5E] shrink-0 mt-0.5" />
             <span>
-              <strong>Statutory Transparency:</strong> AI screening scores are risk signals,
-              not definitive proof of authenticity or identity ownership.
+              <strong>{t('statutory_transparency', 'Statutory Transparency')}:</strong> {t('statutory_disclaimer', 'AI screening scores are risk signals, not definitive proof of authenticity or identity ownership.')}
             </span>
           </div>
         </motion.div>
@@ -394,17 +394,17 @@ export const DashboardPage: React.FC = () => {
           className="bg-white rounded-2xl border border-[#657572]/15 p-5 shadow-xs space-y-4"
         >
           <div>
-            <h3 className="text-sm font-bold text-[#063F3A]">Security Posture</h3>
-            <p className="text-[11px] text-[#657572]">Operator authentication & privacy defense</p>
+            <h3 className="text-sm font-bold text-[#063F3A]">{t('security_posture', 'Security Posture')}</h3>
+            <p className="text-[11px] text-[#657572]">{t('operator_auth_defense', 'Operator authentication & privacy defense')}</p>
           </div>
 
           <div className="space-y-3">
             <div className="p-3 rounded-xl bg-[#218A68]/10 border border-[#218A68]/20 flex items-start gap-2.5 text-xs">
               <ShieldCheck className="w-4 h-4 text-[#218A68] shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-[#063F3A]">Account Protected</p>
+                <p className="font-semibold text-[#063F3A]">{t('account_protected', 'Account Protected')}</p>
                 <p className="text-[11px] text-[#657572] mt-0.5">
-                  Multi-factor authentication enabled with encrypted session tokens.
+                  {t('mfa_enabled_desc', 'Multi-factor authentication enabled with encrypted session tokens.')}
                 </p>
               </div>
             </div>
@@ -412,24 +412,24 @@ export const DashboardPage: React.FC = () => {
             <div className="p-3 rounded-xl bg-[#063F3A]/5 border border-[#063F3A]/15 flex items-start gap-2.5 text-xs">
               <Lock className="w-4 h-4 text-[#0B6B5E] shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-[#063F3A]">Zero Raw Retention</p>
+                <p className="font-semibold text-[#063F3A]">{t('zero_retention', 'Zero Raw Retention')}</p>
                 <p className="text-[11px] text-[#657572] mt-0.5">
-                  All submitted image buffers are stored in ephemeral memory and auto-purged within 15 minutes.
+                  {t('ephemeral_purge_desc', 'All submitted image buffers are stored in ephemeral memory and auto-purged within 15 minutes.')}
                 </p>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-white border border-[#657572]/20 space-y-2 text-xs">
               <div className="flex items-center justify-between text-[11px] text-[#657572]">
-                <span>2FA Verification Status:</span>
-                <span className="font-mono text-[#218A68] font-semibold">Active</span>
+                <span>{t('2fa_status', '2FA Verification Status')}:</span>
+                <span className="font-mono text-[#218A68] font-semibold">{t('active_status', 'Active')}</span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-[#657572]">
-                <span>Active Sessions:</span>
-                <span className="font-mono text-[#102321] font-semibold">{user?.activeSessionsCount || 1} session(s)</span>
+                <span>{t('active_sessions', 'Active Sessions')}:</span>
+                <span className="font-mono text-[#102321] font-semibold">{user?.activeSessionsCount || 1} {t('sessions', 'session(s)')}</span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-[#657572]">
-                <span>Session Security:</span>
+                <span>{t('session_sec', 'Session Security')}:</span>
                 <span className="font-mono text-[#0B6B5E] font-semibold">SHA-256 Bearer</span>
               </div>
             </div>
@@ -441,7 +441,7 @@ export const DashboardPage: React.FC = () => {
               onClick={() => setCurrentView('profile')}
               className="w-full py-2 bg-[#F8F5ED] hover:bg-[#063F3A]/10 text-[#063F3A] text-xs font-semibold rounded-lg border border-[#657572]/20 transition-colors"
             >
-              Manage Security & Retention
+              {t('manage_security', 'Manage Security & Retention')}
             </motion.button>
           </div>
         </motion.div>

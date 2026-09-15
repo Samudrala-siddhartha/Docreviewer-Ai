@@ -6,18 +6,20 @@
 import React from 'react';
 import { LayoutDashboard, ScanLine, FileCheck2, UserCog, Menu } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
+import { useLanguage } from '../hooks/useLanguage.tsx';
 
 export const MobileBottomNav: React.FC = () => {
   const { currentView, setCurrentView, isSidebarOpen, toggleSidebar } = useAuth();
+  const { t } = useLanguage();
 
   const isFullscreenSplash = currentView === 'splash' || currentView === 'login' || currentView === 'signup';
   if (isFullscreenSplash) return null;
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: LayoutDashboard },
-    { id: 'scan', label: 'Screen', icon: ScanLine, isPrimary: true },
-    { id: 'reports', label: 'Reports', icon: FileCheck2 },
-    { id: 'profile', label: 'Profile', icon: UserCog },
+    { id: 'home', labelKey: 'nav_home', defaultLabel: 'Dashboard', icon: LayoutDashboard },
+    { id: 'scan', labelKey: 'nav_scan', defaultLabel: 'Screen', icon: ScanLine, isPrimary: true },
+    { id: 'reports', labelKey: 'nav_reports', defaultLabel: 'Reports', icon: FileCheck2 },
+    { id: 'profile', labelKey: 'nav_profile', defaultLabel: 'Profile', icon: UserCog },
   ];
 
   return (
@@ -26,6 +28,7 @@ export const MobileBottomNav: React.FC = () => {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
+          const label = t(item.labelKey, item.defaultLabel);
           return (
             <button
               key={item.id}
@@ -40,7 +43,7 @@ export const MobileBottomNav: React.FC = () => {
               }`}
             >
               <Icon className={`w-5 h-5 ${item.isPrimary ? 'text-[#E1B95A]' : ''}`} />
-              <span className="text-[10px] tracking-tight mt-0.5">{item.label}</span>
+              <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[65px]">{label}</span>
             </button>
           );
         })}
@@ -60,10 +63,9 @@ export const MobileBottomNav: React.FC = () => {
             <span className="w-3 h-0.5 bg-current rounded-full self-start ml-0.5" />
             <span className="w-4 h-0.5 bg-current rounded-full" />
           </div>
-          <span className="text-[10px] tracking-tight mt-0.5">3-Lines</span>
+          <span className="text-[10px] tracking-tight mt-0.5">{t('menu', 'Menu')}</span>
         </button>
       </div>
     </div>
   );
 };
-

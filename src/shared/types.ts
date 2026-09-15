@@ -224,6 +224,45 @@ export interface BorderCheckpointAudit {
   checkpointThroughputScore: string;
 }
 
+export type DocumentValidationStatus = 'GENUINE' | 'INVALID';
+
+export interface StructuralElementValidation {
+  category: 'COMMON_FIELDS' | 'VISUAL_LAYOUT' | 'FORENSIC_CHECKS' | 'MACHINE_READABLE' | 'METADATA' | 'TEMPLATE_COMPARISON';
+  name: string;
+  status: 'PASSED' | 'FLAGGED' | 'FAILED' | 'MISSING';
+  score: number; // 0 to 100
+  details: string;
+  expectedPattern?: string;
+  observedPattern?: string;
+}
+
+export interface DocumentTemplateMatch {
+  templateId: string;
+  documentType: DocumentType;
+  templateName: string;
+  issuingAuthority: string;
+  matchScore: number; // 0 to 100%
+  structuralSimilarity: number;
+  confidence: number;
+  isRecognizedTemplate: boolean;
+  matchedFeatures: string[];
+  missingFeatures: string[];
+  templateCategory: string;
+}
+
+export interface IntelligentValidationResult {
+  validationStatus: DocumentValidationStatus;
+  overallScore: number; // 0 - 100
+  isRecognizedTemplate: boolean;
+  matchedTemplate: DocumentTemplateMatch;
+  structuralChecks: StructuralElementValidation[];
+  primaryReasons: string[];
+  recommendation: string;
+  promptToUser?: string;
+  validationTimestamp: string;
+  validatorEngineVersion: string;
+}
+
 export interface ScanRecord {
   id: string;
   userId: string;
@@ -252,6 +291,7 @@ export interface ScanRecord {
   result?: ScreeningResult;
   pipelinePhases?: PipelinePhaseReport[];
   borderAudit?: BorderCheckpointAudit;
+  intelligentValidation?: IntelligentValidationResult;
   manualReviewStatus?: ManualReviewDecision;
   manualReviewNotes?: string;
   reviewerId?: string;

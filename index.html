@@ -2,6 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Suppress benign [vite] websocket connection error in AI Studio sandboxed preview
+      (function() {
+        var _err = console.error;
+        console.error = function() {
+          var firstArg = arguments[0];
+          if (typeof firstArg === 'string' && (firstArg.indexOf('[vite] failed to connect to websocket') !== -1 || firstArg.indexOf('WebSocket closed without opened') !== -1)) {
+            return;
+          }
+          return _err.apply(console, arguments);
+        };
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="shortcut icon" href="/favicon.ico" />

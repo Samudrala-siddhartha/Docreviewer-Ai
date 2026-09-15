@@ -5,10 +5,10 @@
 
 import React from 'react';
 import { AuthProvider, useAuth } from './client/state/AuthContext.tsx';
+import { LanguageProvider } from './client/hooks/useLanguage.tsx';
 import { Header } from './client/components/Header.tsx';
 import { SidebarNav } from './client/components/SidebarNav.tsx';
 import { MobileBottomNav } from './client/components/MobileBottomNav.tsx';
-
 import { SplashPage } from './client/pages/SplashPage.tsx';
 import { LoginPage } from './client/pages/LoginPage.tsx';
 import { SignupPage } from './client/pages/SignupPage.tsx';
@@ -80,9 +80,11 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

@@ -8,10 +8,15 @@ import { ShieldCheck, Fingerprint, Lock, UserCheck, LogOut, ChevronDown, User, S
 import { useAuth } from '../state/AuthContext.tsx';
 import { UserRole } from '../../shared/types.ts';
 import { DocSureLogo } from './DocSureLogo.tsx';
+import { useLanguage, languagesList } from '../hooks/useLanguage.tsx';
+import { PWAInstallButton } from './PWAInstallButton.tsx';
+import { Globe } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { user, quickSwitchDemo, logout, currentView, setCurrentView, isSidebarOpen, toggleSidebar } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
+  const [langDropdownOpen, setLangDropdownOpen] = React.useState(false);
 
   const roleColors: Record<UserRole, string> = {
     USER: 'bg-[#0B6B5E]/15 text-[#0B6B5E] border-[#0B6B5E]/30',
@@ -20,6 +25,8 @@ export const Header: React.FC = () => {
   };
 
   const isFullscreenSplash = currentView === 'splash' || currentView === 'login' || currentView === 'signup';
+
+  const currentLangObj = languagesList.find(l => l.code === language) || languagesList[0];
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur border-b border-[#657572]/15 shadow-xs">
@@ -72,10 +79,11 @@ export const Header: React.FC = () => {
         {/* Evaluation Persona Switcher for SIH reviewers */}
         <div className="hidden md:flex items-center gap-1 px-2.5 py-1 bg-[#F8F5ED] border border-[#657572]/20 rounded-lg text-xs">
           <span className="text-[11px] font-mono text-[#657572] mr-1 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-[#C89B3C]" /> SIH Persona:
+            <Sparkles className="w-3 h-3 text-[#C89B3C]" /> {t('sih_persona', 'SIH Persona')}:
           </span>
           {(['USER', 'REVIEWER', 'ADMIN'] as UserRole[]).map((r) => {
             const isActive = user?.role === r;
+            const roleLabel = r === 'USER' ? `👤 ${t('role_user', 'User')}` : r === 'REVIEWER' ? `🔍 ${t('role_reviewer', 'Reviewer')}` : `🛡️ ${t('role_admin', 'Admin')}`;
             return (
               <button
                 key={r}
@@ -87,17 +95,56 @@ export const Header: React.FC = () => {
                     : 'text-[#657572] hover:text-[#102321] hover:bg-black/5'
                 }`}
               >
-                {r === 'USER' ? '👤 User' : r === 'REVIEWER' ? '🔍 Reviewer' : '🛡️ Admin'}
+                {roleLabel}
               </button>
             );
           })}
         </div>
 
-        {/* Security Status Pill & User Profile */}
-        <div className="flex items-center gap-3">
+        {/* Right side controls: PWA, Lang, Auth */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <PWAInstallButton />
+
+          {/* Fully Responsive Language Switcher */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border border-[#657572]/20 hover:bg-[#F8F5ED] text-[#102321] text-xs font-medium uppercase transition-colors"
+              title="Change Language / भाषा बदलें / భాష మార్చండి"
+            >
+              <Globe className="w-4 h-4 text-[#0B6B5E]" />
+              <span className="font-semibold text-[11px] sm:text-xs">{currentLangObj.flag} {currentLangObj.code.toUpperCase()}</span>
+              <ChevronDown className="w-3 h-3 text-[#657572]" />
+            </button>
+            {langDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border border-[#657572]/20 rounded-xl shadow-xl py-1.5 z-50 text-xs animate-in fade-in">
+                <div className="px-3 py-1 text-[10px] font-mono text-[#657572] uppercase tracking-wider border-b border-[#657572]/10 mb-1">
+                  Select Language / भाषा
+                </div>
+                {languagesList.map(lang => (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      setLanguage(lang.code);
+                      setLangDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 flex items-center justify-between hover:bg-[#F8F5ED] transition-colors ${language === lang.code ? 'font-bold text-[#063F3A] bg-[#063F3A]/5' : 'text-[#102321]'}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>{lang.flag}</span>
+                      <span>{lang.nativeName}</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-[#657572] uppercase">{lang.code}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-[#218A68] font-mono bg-[#218A68]/10 px-2.5 py-1 rounded-full border border-[#218A68]/20">
             <Lock className="w-3 h-3" />
-            <span>Zero-Retention Ephemeral Storage</span>
+            <span>{t('zero_retention', 'Zero-Retention Ephemeral Storage')}</span>
           </div>
 
           {user ? (
@@ -147,7 +194,7 @@ export const Header: React.FC = () => {
                     className="w-full flex items-center gap-2 p-2 hover:bg-[#F8F5ED] rounded-lg text-[#102321]"
                   >
                     <User className="w-4 h-4 text-[#0B6B5E]" />
-                    Profile & Security Settings
+                    {t('profile_settings', 'Profile & Security Settings')}
                   </button>
 
                   <button
@@ -159,7 +206,7 @@ export const Header: React.FC = () => {
                     className="w-full flex items-center gap-2 p-2 hover:bg-[#C94A45]/10 text-[#C94A45] rounded-lg mt-1"
                   >
                     <LogOut className="w-4 h-4" />
-                    Sign Out
+                    {t('sign_out', 'Sign Out')}
                   </button>
                 </div>
               )}
@@ -170,7 +217,7 @@ export const Header: React.FC = () => {
               onClick={() => setCurrentView('login')}
               className="px-3.5 py-1.5 bg-[#063F3A] text-white text-xs font-semibold rounded-lg hover:bg-[#0B6B5E] transition-colors"
             >
-              Sign In
+              {t('sign_in', 'Sign In')}
             </button>
           )}
         </div>

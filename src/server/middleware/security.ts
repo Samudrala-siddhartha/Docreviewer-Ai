@@ -27,9 +27,8 @@ const rateLimitMap = new Map<string, RateLimitBucket>();
 
 export function createSecurityHeadersMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Defense-in-depth headers
+    // Defense-in-depth headers (omit X-Frame-Options to allow preview embedding in AI Studio)
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(self)');
