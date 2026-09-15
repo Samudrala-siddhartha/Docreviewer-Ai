@@ -42,6 +42,7 @@ import {
   Check,
   Target,
   FileWarning,
+  Flame,
 } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.tsx';
 import { apiRequest } from '../utils/api.ts';
@@ -91,6 +92,10 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
   const [isAdvancingStep, setIsAdvancingStep] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeScanResult, setActiveScanResult] = useState<ScanRecord | null>(null);
+  
+  // Multi-file & History state
+  const [scanHistory, setScanHistory] = useState<ScanRecord[]>([]);
+  const [fileQueue, setFileQueue] = useState<File[]>([]);
 
   // Live Camera state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -130,6 +135,16 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
       stopCameraStream();
     };
   }, [stopCameraStream]);
+
+  // Track Scan History
+  useEffect(() => {
+    if (pipelineStage === 'DONE' && activeScanResult) {
+      setScanHistory((prev) => {
+        if (prev.find((s) => s.id === activeScanResult.id)) return prev;
+        return [activeScanResult, ...prev];
+      });
+    }
+  }, [pipelineStage, activeScanResult]);
 
   // Start live camera feed
   const startCamera = async (facing: 'environment' | 'user' = cameraFacing) => {
@@ -543,16 +558,44 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFileName(file.name);
+    const files = Array.from(e.target.files || []) as File[];
+    if (files.length > 0) {
+      const firstFile = files[0];
+      setSelectedFileName(firstFile.name);
       const reader = new FileReader();
       reader.onload = () => {
         setFilePreview(reader.result as string);
         setCapturedImageData(reader.result as string);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(firstFile);
+
+      if (files.length > 1) {
+        setFileQueue(files.slice(1));
+      } else {
+        setFileQueue([]);
+      }
     }
+  };
+
+  const processNextInQueue = () => {
+    if (fileQueue.length === 0) return;
+    const nextFile = fileQueue[0];
+    
+    setPipelineStage('IDLE');
+    setStepNumber(0);
+    setActiveScanResult(null);
+    setCapturedImageData(null);
+    setFilePreview(null);
+    
+    setSelectedFileName(nextFile.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFilePreview(reader.result as string);
+      setCapturedImageData(reader.result as string);
+    };
+    reader.readAsDataURL(nextFile);
+    
+    setFileQueue(prev => prev.slice(1));
   };
 
   // Autonomous Continuous Execution
@@ -711,6 +754,67 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
           </div>
         </div>
       </div>
+
+      {/* Recent Scans (Current Session) */}
+      {scanHistory.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-[11px] font-bold text-[#063F3A] uppercase tracking-wider">
+            Recent Session Scans
+          </h2>
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 custom-scrollbar">
+            {scanHistory.map((scan, idx) => (
+              <div
+                key={scan.id || idx}
+                className="shrink-0 p-2 bg-white rounded-xl border border-[#657572]/15 shadow-2xs flex items-center gap-3 cursor-pointer hover:bg-[#F8F5ED] transition-colors"
+                onClick={() => {
+                   setActiveScanResult(scan);
+                   setPipelineStage('DONE');
+                   setStepNumber(7);
+                   setFilePreview(scan.imageSrc || null);
+                   setSelectedFileName(scan.detectedCardType || 'Previously Scanned Document');
+                }}
+              >
+                {/* Thumbnail */}
+                <div className="w-12 h-8 rounded bg-[#102321] overflow-hidden flex items-center justify-center shrink-0">
+                  {scan.imageSrc ? (
+                    <img src={scan.imageSrc} alt="thumbnail" className="w-full h-full object-cover opacity-80" />
+                  ) : (
+                    <FileCheck2 className="w-4 h-4 text-[#657572]" />
+                  )}
+                </div>
+                {/* Details */}
+                <div className="space-y-0.5 max-w-[140px]">
+                  <p className="text-[10px] font-bold text-[#102321] truncate">
+                    {scan.detectedCardType || scan.classifiedType}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        scan.isOriginal
+                          ? 'bg-[#218A68]'
+                          : scan.classifiedType === 'UNRELATED_CARD' || scan.isOfficialGovernmentDoc === false
+                          ? 'bg-[#991B1B]'
+                          : scan.result?.riskLevel === 'INCONCLUSIVE'
+                          ? 'bg-[#C58A25]'
+                          : 'bg-[#C94A45]'
+                      }`}
+                    />
+                    <span className="text-[9px] font-mono font-medium text-[#657572] truncate">
+                      {scan.isOriginal
+                          ? 'AUTHENTIC'
+                          : scan.classifiedType === 'UNRELATED_CARD' || scan.isOfficialGovernmentDoc === false
+                          ? 'REJECTED'
+                          : scan.result?.riskLevel === 'INCONCLUSIVE'
+                          ? 'INCONCLUSIVE'
+                          : 'TAMPERED'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Workflow View: IDLE Configuration */}
       {pipelineStage === 'IDLE' && !activeScanResult && (
@@ -1531,6 +1635,7 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                 <input
                   type="file"
                   accept="image/jpeg,image/png,application/pdf"
+                  multiple
                   onChange={handleFileUpload}
                   className="hidden"
                   id="file-upload-input"
@@ -1539,13 +1644,16 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                   htmlFor="file-upload-input"
                   className="inline-block px-4 py-2 bg-white border border-[#657572]/30 rounded-xl text-xs font-semibold text-[#063F3A] hover:bg-[#F8F5ED] cursor-pointer shadow-xs"
                 >
-                  Choose Document File
+                  Choose Document Files
                 </label>
 
                 {selectedFileName && (
                   <div className="p-2 bg-white rounded-lg border border-[#0B6B5E]/30 inline-flex items-center gap-2 text-xs font-mono text-[#0B6B5E]">
                     <FileCheck2 className="w-3.5 h-3.5" />
-                    <span>Selected: {selectedFileName}</span>
+                    <span>
+                      Selected: {selectedFileName}
+                      {fileQueue.length > 0 && ` (+${fileQueue.length} in queue)`}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1785,16 +1893,17 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
       {/* COMPLETED RESULTS VIEW: ALL 7 PHASES FINISHED */}
       {pipelineStage === 'DONE' && activeScanResult && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-6"
         >
           {/* Executive Risk Banner with Delightful Framer Motion Animations */}
           {(() => {
             const isUnrelated = activeScanResult.isOfficialGovernmentDoc === false || activeScanResult.classifiedType === 'UNRELATED_CARD';
             const isOriginal = activeScanResult.isOriginal === true && !isUnrelated;
-            const isTampered = !isOriginal && !isUnrelated && activeScanResult.result?.riskLevel === 'HIGH_RISK';
+            const isInconclusive = activeScanResult.result?.riskLevel === 'INCONCLUSIVE' || (!isOriginal && !isUnrelated && activeScanResult.result?.riskLevel !== 'HIGH_RISK');
+            const isTampered = !isOriginal && !isUnrelated && !isInconclusive;
 
             return (
               <div
@@ -1942,6 +2051,9 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                     </div>
                   </div>
                   <div className="flex items-center gap-2 font-mono text-[11px] flex-wrap">
+                    <span className="px-2 py-0.5 rounded bg-black/5 text-[#657572] font-bold">
+                      Confidence: {Math.round((activeScanResult.result?.confidence || 0.9) * 100)}%
+                    </span>
                     <span className="px-2 py-0.5 rounded bg-black/5 text-[#657572]">
                       Authority: {activeScanResult.issuingAuthority || 'N/A'}
                     </span>
@@ -1951,35 +2063,76 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                   </div>
                 </div>
 
-                {/* Confidence Progress Meter */}
-                <div className="p-4 bg-white/90 rounded-xl border border-[#657572]/15 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[#102321]">
-                      {isOriginal
-                        ? 'Authenticity Confidence Metric:'
-                        : isUnrelated
-                        ? 'Disqualification / Non-Government Confidence:'
-                        : 'Tampering Risk Confidence Metric:'}
-                    </span>
-                    <span className="font-mono font-bold text-[#063F3A]">
-                      {Math.round((activeScanResult.result?.confidence || 0.9) * 100)}% Calibrated Confidence
-                    </span>
+                {/* CANVAS-BASED HEATMAP EVIDENCE OVERLAY */}
+                <div className="bg-white rounded-xl border border-[#063F3A]/20 overflow-hidden shadow-2xs">
+                  <div className="p-4 border-b border-[#063F3A]/15 bg-[#F8F5ED] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Flame className="w-5 h-5 text-[#C94A45]" />
+                      <div>
+                        <h4 className="font-bold text-[#063F3A] text-sm">Visual Evidence Heatmap</h4>
+                        <p className="text-[11px] text-[#657572]">Direct anomaly highlighting on provided source image</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full bg-[#657572]/15 h-2.5 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.round((activeScanResult.result?.confidence || 0.9) * 100)}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                      className={`h-full rounded-full ${
-                        isOriginal
-                          ? 'bg-[#218A68]'
-                          : isUnrelated
-                          ? 'bg-[#991B1B]'
-                          : isTampered
-                          ? 'bg-[#C94A45]'
-                          : 'bg-[#C58A25]'
-                      }`}
-                    />
+                  
+                  <div className="relative w-full bg-[#102321] aspect-[3/2] sm:aspect-video flex items-center justify-center overflow-hidden">
+                    {(activeScanResult.imageSrc || filePreview) ? (
+                      <>
+                        <img 
+                          src={activeScanResult.imageSrc || filePreview!} 
+                          alt="Scan Evidence" 
+                          className="max-w-full max-h-full object-contain absolute z-0" 
+                        />
+                        {/* Render Anomalies directly on the image */}
+                        {[
+                          ...(activeScanResult.findings || []).map((f, i) => ({
+                            id: f.id,
+                            title: f.title,
+                            region: f.region || { x: 20 + i * 15, y: 30 + i * 10, width: 25, height: 20 },
+                            isFinding: true,
+                            label: `#${i + 1}`
+                          })),
+                          ...(activeScanResult.borderAudit?.checks || [])
+                            .filter((c) => c.anomalyRegion && c.status === 'FLAGGED')
+                            .map((c, i) => ({
+                              id: `BORDER-${c.checkKey}`,
+                              title: c.name,
+                              region: c.anomalyRegion!,
+                              isFinding: false,
+                              label: 'FLAG'
+                            }))
+                        ].map((anomaly, idx) => (
+                          <div
+                            key={anomaly.id}
+                            className="absolute rounded-full border-4 border-[#C94A45] bg-[#C94A45]/10 ring-4 ring-white shadow-xl z-20 flex items-center justify-center animate-pulse group cursor-crosshair hover:bg-[#C94A45]/30 hover:scale-105 transition-all"
+                            style={{
+                              left: `${anomaly.region.x}%`,
+                              top: `${anomaly.region.y}%`,
+                              width: `${anomaly.region.width}%`,
+                              height: `${anomaly.region.height}%`,
+                            }}
+                          >
+                            {/* Noticeable Arrow pointing at the anomaly */}
+                            <div className="absolute -left-12 sm:-left-16 top-1/2 -translate-y-1/2 flex items-center">
+                              <span className="w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center shadow-xs text-white bg-[#C94A45] z-30 shrink-0 group-hover:scale-110 transition-transform">
+                                {idx + 1}
+                              </span>
+                              <ChevronRight className="w-6 h-6 text-[#C94A45] shrink-0" strokeWidth={4} />
+                            </div>
+                            
+                            {/* Hover Tooltip/Label */}
+                            <div className="absolute top-[110%] left-1/2 -translate-x-1/2 w-max max-w-[200px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+                              <div className="bg-[#102321] text-white text-[10px] font-bold p-2.5 rounded-lg shadow-2xl border border-white/10 flex flex-col gap-1">
+                                <span className="text-[#C94A45] uppercase tracking-wider text-[9px]">{anomaly.label} Detected</span>
+                                <span className="whitespace-normal leading-tight">{anomaly.title}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                       <div className="text-[#657572] text-sm">No source image available for heatmap</div>
+                    )}
                   </div>
                 </div>
 
@@ -2102,7 +2255,7 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                         DocSure AI strictly evaluates accredited sovereign government credentials (such as National IDs, Passports, Voter IDs, and Driver Licenses across 190+ countries). Commercial payment cards, corporate badges, and recreational cards fail evaluation.
                       </div>
                     </div>
-                  ) : (
+                  ) : isTampered ? (
                     /* REASONS WHY IT IS FLAGGED / TAMPERED */
                     <div className="bg-white rounded-xl border border-[#C94A45]/30 p-5 space-y-3.5 shadow-2xs">
                       <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#C94A45]/20">
@@ -2160,6 +2313,45 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
                           </div>
                         </div>
                       )}
+                    </div>
+                  ) : (
+                    /* REASONS WHY IT IS INCONCLUSIVE */
+                    <div className="bg-white rounded-xl border border-[#C58A25]/30 p-5 space-y-3.5 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#C58A25]/20">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-[#C58A25]" />
+                          <h4 className="font-bold text-[#854D0E] text-sm">
+                            Evaluation Inconclusive / Partial Document:
+                          </h4>
+                        </div>
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#C58A25]/10 text-[#854D0E] border border-[#C58A25]/20">
+                          INSUFFICIENT DATA
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5 text-xs">
+                        {(activeScanResult.result?.primaryReasons || []).map((reason, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.05 + i * 0.04 }}
+                            className="p-3 rounded-lg bg-[#C58A25]/5 border border-[#C58A25]/20 flex items-start gap-2.5"
+                          >
+                            <AlertTriangle className="w-4 h-4 text-[#854D0E] shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-[#854D0E] block">Observation #{i + 1}:</span>
+                              <span className="text-[#102321] leading-relaxed">{reason}</span>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      {/* Summary callout */}
+                      <div className="p-3 rounded-lg bg-[#FAF9F5] border border-[#657572]/20 text-[11px] text-[#657572]">
+                        <span className="font-bold text-[#102321]">Action Required: </span>
+                        Please re-scan the document in better lighting or ensure the full document is visible within the frame. The current image lacks the necessary details to confirm or deny authenticity.
+                      </div>
                     </div>
                   )}
 
@@ -2261,21 +2453,31 @@ export const ScanPage: React.FC<{ onScanCompleted?: (scan: ScanRecord) => void }
           )}
 
           {/* Next Document Actions */}
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                setPipelineStage('IDLE');
-                setStepNumber(0);
-                setActiveScanResult(null);
-                setCapturedImageData(null);
-                setFilePreview(null);
-              }}
-              className="px-5 py-2.5 rounded-xl bg-white border border-[#657572]/25 text-xs font-semibold text-[#063F3A] hover:bg-[#F8F5ED] shadow-2xs transition-colors"
-            >
-              ← Screen Another Document
-            </button>
-
+          <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+            {fileQueue.length > 0 ? (
+              <button
+                type="button"
+                onClick={processNextInQueue}
+                className="px-5 py-2.5 rounded-xl bg-[#218A68] border border-[#218A68] text-xs font-bold text-white hover:bg-[#1B7054] shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <StepForward className="w-3.5 h-3.5" />
+                Process Next in Queue ({fileQueue.length} left)
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setPipelineStage('IDLE');
+                  setStepNumber(0);
+                  setActiveScanResult(null);
+                  setCapturedImageData(null);
+                  setFilePreview(null);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-white border border-[#657572]/25 text-xs font-semibold text-[#063F3A] hover:bg-[#F8F5ED] shadow-2xs transition-colors"
+              >
+                ← Screen Another Document
+              </button>
+            )}
             <button
               type="button"
               onClick={() => viewScanReport(activeScanResult.id)}

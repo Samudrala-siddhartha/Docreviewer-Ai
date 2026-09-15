@@ -755,13 +755,8 @@ export function createApiRouter(deps: ApiRouterDependencies = {}): Router {
             ? 'Metadata indicates previous image editing software signature; this is a supporting signal and does not independently prove document fraud.'
             : 'Standard image sensor metadata without graphic manipulation markers.',
         },
-        extractedFields: inspection.extractedFields && inspection.extractedFields.length > 0
-          ? inspection.extractedFields
-          : [
-              { field: 'doc_number', label: 'Document Identifier', value: isUnrelatedScenario ? 'NON-GOVERNMENT' : 'XXXX-9842', confidence: 0.98, matchesReferenceRule: !isUnrelatedScenario },
-              { field: 'full_name', label: isUnrelatedScenario ? 'Cardholder / Account' : 'Subject Name', value: isUnrelatedScenario ? 'COMMERCIAL CARD SPECIMEN' : 'DEMO SUBJECT (SYNTHETIC)', confidence: 0.94 },
-              { field: 'dob', label: isUnrelatedScenario ? 'Issue / Expiry' : 'Date of Birth', value: isCodeMismatch ? '01/01/1985 (Flagged)' : (isUnrelatedScenario ? 'N/A (Non-Gov)' : '14/08/1992'), confidence: isCodeMismatch ? 0.74 : 0.97 },
-            ],
+        extractedFields: inspection.extractedFields || [],
+        imageSrc: fileData,
         findings,
         securityFeatures: [
           {

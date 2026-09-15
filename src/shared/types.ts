@@ -244,6 +244,7 @@ export interface ScanRecord {
   metadata?: DocumentMetadataSummary;
   extractedFields?: ExtractedField[];
   findings: ForensicFinding[];
+  imageSrc?: string;
   securityFeatures?: SecurityFeatureResult[];
   codeAnalysis?: CodeAnalysisResult;
   duplicateAnalysis?: DuplicateDetectionResult;

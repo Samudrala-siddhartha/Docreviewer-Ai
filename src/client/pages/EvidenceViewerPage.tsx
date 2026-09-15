@@ -385,220 +385,16 @@ export const EvidenceViewerPage: React.FC = () => {
                 transform: `scale(${zoomLevel}) rotate(${rotation}deg)`,
               }}
             >
-              {/* Document Visual Layout (Based on classified card type) */}
-              {isUnrelated ? (
-                /* Commercial / Unaccredited Card Specimen */
-                <div className="h-full flex flex-col justify-between text-[#102321] relative z-0">
-                  <div className="flex items-center justify-between border-b border-[#991B1B]/30 pb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md bg-[#991B1B] text-white flex items-center justify-center font-bold text-[9px]">
-                        CC
-                      </div>
-                      <div>
-                        <div className="font-bold text-[11px] uppercase tracking-wider text-[#991B1B]">
-                          COMMERCIAL PAYMENT CARD
-                        </div>
-                        <div className="text-[8px] text-[#991B1B] font-mono font-semibold">
-                          UNACCREDITED • NON-GOVERNMENT SPECIMEN
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-[#991B1B]/15 text-[#991B1B] font-bold border border-[#991B1B]/30">
-                      DISQUALIFIED
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 my-auto text-xs">
-                    <div className="w-10 h-8 rounded bg-[#D97706]/30 border border-[#D97706] flex items-center justify-center text-[7px] font-mono text-[#B45309]">
-                      CHIP
-                    </div>
-                    <div className="font-mono text-sm tracking-widest text-[#0F172A] font-bold">
-                      4532 •••• •••• 9842
-                    </div>
-                    <div className="flex justify-between text-[9px] text-[#657572] font-mono">
-                      <span>CARDHOLDER: SPECIMEN</span>
-                      <span>EXP: 08/29</span>
-                    </div>
-                  </div>
-
-                  <div className="p-1.5 rounded bg-[#991B1B]/10 border border-[#991B1B]/25 text-[8px] text-[#991B1B] font-bold text-center">
-                    FAILS BORDER ACCREDITATION: Commercial cards lack sovereign crest, MRZ, & government QR
-                  </div>
-                </div>
-              ) : scan.classifiedType === 'PASSPORT' ? (
-                /* Passport Booklet Specimen */
-                <div className="h-full flex flex-col justify-between text-[#102321] relative z-0">
-                  <div className="flex items-center justify-between border-b border-[#102321]/15 pb-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-[#063F3A]/20 flex items-center justify-center font-bold text-[10px] text-[#063F3A]">
-                        P
-                      </div>
-                      <div>
-                        <div className="font-bold text-[11px] uppercase tracking-wider">
-                          PASSPORT • {scan.issuingCountry || 'SOVEREIGN NATION'}
-                        </div>
-                        <div className="text-[8px] text-[#657572] font-mono">
-                          ICAO DOC 9303 MACHINE READABLE TRAVEL DOCUMENT
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded bg-[#C89B3C]/20 border border-[#C89B3C]/40 flex items-center justify-center text-[7px] font-mono text-[#8F6A15] font-bold">
-                      SEAL
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 my-1 text-[10px]">
-                    <div className="col-span-1 flex flex-col items-center justify-center p-2 bg-black/5 rounded-lg border border-black/10 relative">
-                      <div className="w-14 h-16 bg-[#063F3A]/15 rounded flex items-center justify-center text-[8px] font-mono text-[#063F3A] font-bold">
-                        PORTRAIT
-                      </div>
-                      <span className="text-[7px] text-[#657572] mt-1 font-mono">ICAO BIOMETRIC</span>
-                    </div>
-
-                    <div className="col-span-2 space-y-1">
-                      <div>
-                        <span className="text-[7px] text-[#657572] uppercase block">Surname / Given Names</span>
-                        <span className="font-bold text-[10px]">DOE / JOHNATHAN MARCUS</span>
-                      </div>
-                      <div className="flex gap-3">
-                        <div>
-                          <span className="text-[7px] text-[#657572] uppercase block">DOB</span>
-                          <span className="font-mono text-[9px] font-bold">14/08/1992</span>
-                        </div>
-                        <div>
-                          <span className="text-[7px] text-[#657572] uppercase block">Passport No.</span>
-                          <span className="font-mono text-[9px] font-bold">Z8942109</span>
-                        </div>
-                      </div>
-                      <div className="p-1 rounded bg-[#063F3A]/5 text-[8px] text-[#0B6B5E] font-mono">
-                        Consular Seal: Standard Sovereign Pigment
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* MRZ Zone */}
-                  <div className="bg-[#0F172A] text-white p-1 rounded font-mono text-[8px] tracking-wider leading-tight">
-                    <div>P&lt;UTOJOHNATHAN&lt;&lt;MARCUS&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</div>
-                    <div>Z8942109&lt;2UTO9208144M2908146&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;04</div>
-                  </div>
-                </div>
+              {/* Visual Document Mockup Canvas */}
+              {scan.imageSrc ? (
+                <img
+                  src={scan.imageSrc}
+                  alt="Scanned Document"
+                  className="w-full h-full object-contain absolute inset-0 z-0"
+                />
               ) : (
-                /* Sovereign National ID Specimen (PAN / Aadhaar / DL / Real ID) */
-                <div className="h-full flex flex-col justify-between text-[#102321] relative z-0">
-                  <div className="flex items-center justify-between border-b border-[#102321]/15 pb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-[#063F3A]/20 flex items-center justify-center font-bold text-[10px] text-[#063F3A]">
-                        ID
-                      </div>
-                      <div>
-                        <div className="font-bold text-[11px] uppercase tracking-wider">
-                          {scan.detectedCardType || scan.documentType} SPECIMEN
-                        </div>
-                        <div className="text-[8px] text-[#657572] font-mono">
-                          {scan.issuingAuthority || 'STATUTORY GOVERNMENT ISSUANCE'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded bg-[#C89B3C]/20 border border-[#C89B3C]/40 flex items-center justify-center text-[7px] font-mono text-[#8F6A15] font-bold">
-                      SEAL
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 my-2 text-[10px]">
-                    <div className="col-span-1 flex flex-col items-center justify-center p-2 bg-black/5 rounded-lg border border-black/10">
-                      <div className="w-12 h-14 bg-black/20 rounded flex items-center justify-center text-[8px] font-mono text-black/50">
-                        PORTRAIT
-                      </div>
-                      <span className="text-[7px] text-[#657572] mt-1 font-mono">PHOTO ID</span>
-                    </div>
-
-                    <div className="col-span-2 space-y-1">
-                      <div>
-                        <span className="text-[8px] text-[#657572] uppercase block">Cardholder Name</span>
-                        <span className="font-bold text-[10px]">
-                          {scan.extractedFields?.find((f) => f.field === 'full_name')?.value || 'VIKRAMADITYA K. JOSHI'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[8px] text-[#657572] uppercase block">Date of Birth</span>
-                        <span
-                          className={`font-bold text-[10px] px-1 rounded ${
-                            scan.findings.some((f) => f.title.toLowerCase().includes('date') || f.title.toLowerCase().includes('dob'))
-                              ? 'text-[#C94A45] bg-[#C94A45]/10'
-                              : 'text-[#102321]'
-                          }`}
-                        >
-                          {scan.extractedFields?.find((f) => f.field === 'dob')?.value || '14/08/1992'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[8px] text-[#657572] uppercase block">Document Number</span>
-                        <span className="font-mono font-bold text-[10px]">
-                          {scan.extractedFields?.find((f) => f.field === 'doc_number')?.value || 'ABCDE1234F'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-[#102321]/15 text-[8px] text-[#657572]">
-                    <div className="font-mono">Guilloche Fine Security Waves: Continuous</div>
-                    <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-mono text-[7px] rounded">
-                      QR
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* DYNAMIC VISUAL HEATMAP OVERLAY LAYER */}
-              {showHeatmapOverlay && (
-                <div
-                  className="absolute inset-0 pointer-events-none z-10 transition-opacity duration-300"
-                  style={{ opacity: heatmapIntensity }}
-                >
-                  {/* Base ambient thermal field */}
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        heatmapMode === 'ELA_THERMAL'
-                          ? 'radial-gradient(ellipse at 50% 50%, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0.45) 100%)'
-                          : heatmapMode === 'EDGE_SPLICE'
-                          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(244, 63, 94, 0.12) 100%)'
-                          : 'radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.2) 100%)',
-                    }}
-                  />
-
-                  {/* Dynamic Thermal Anomaly Blobs Overlaid directly over Anomaly Regions */}
-                  {anomalyRegions.map((anomaly, idx) => {
-                    const isSelected = anomaly.id === selectedFindingId || spotlightCheckKey === anomaly.type;
-                    const r = anomaly.region;
-                    const centerX = r.x + r.width / 2;
-                    const centerY = r.y + r.height / 2;
-                    const spreadRadius = Math.max(r.width, r.height) * 1.3;
-
-                    return (
-                      <div
-                        key={`heat-${anomaly.id}-${idx}`}
-                        className={`absolute rounded-full transition-all duration-300 ${
-                          isSelected ? 'animate-pulse scale-110' : ''
-                        }`}
-                        style={{
-                          left: `${centerX - spreadRadius / 2}%`,
-                          top: `${centerY - spreadRadius / 2}%`,
-                          width: `${spreadRadius}%`,
-                          height: `${spreadRadius}%`,
-                          background:
-                            heatmapMode === 'ELA_THERMAL'
-                              ? `radial-gradient(circle at center, rgba(239, 68, 68, 0.9) 0%, rgba(245, 158, 11, 0.7) 35%, rgba(59, 130, 246, 0.35) 70%, transparent 100%)`
-                              : heatmapMode === 'EDGE_SPLICE'
-                              ? `radial-gradient(circle at center, rgba(244, 63, 94, 0.95) 0%, rgba(217, 70, 239, 0.6) 40%, rgba(16, 185, 129, 0.2) 75%, transparent 100%)`
-                              : `radial-gradient(circle at center, rgba(220, 38, 38, 0.92) 0%, rgba(234, 88, 12, 0.75) 30%, rgba(234, 179, 8, 0.4) 60%, transparent 100%)`,
-                          filter: 'blur(10px)',
-                          mixBlendMode: 'multiply',
-                        }}
-                      />
-                    );
-                  })}
+                <div className="h-full flex items-center justify-center text-xs text-[#657572] z-0">
+                  No image data available
                 </div>
               )}
 
@@ -615,10 +411,10 @@ export const EvidenceViewerPage: React.FC = () => {
                         setSelectedFindingId(anomaly.id);
                       }
                     }}
-                    className={`absolute rounded transition-all cursor-pointer border-2 flex items-start justify-start p-0.5 z-20 ${
+                    className={`absolute rounded-full transition-all cursor-pointer border-4 flex items-center justify-center p-0.5 z-20 ${
                       isSelected
-                        ? 'border-[#C94A45] bg-[#C94A45]/30 ring-2 ring-white shadow-xl scale-105'
-                        : 'border-[#C89B3C] bg-[#C89B3C]/20 hover:bg-[#C89B3C]/35 hover:scale-102'
+                        ? 'border-[#C94A45] bg-[#C94A45]/10 ring-4 ring-white shadow-xl scale-110'
+                        : 'border-[#C89B3C] hover:bg-[#C89B3C]/10 hover:scale-105'
                     }`}
                     style={{
                       left: `${r.x}%`,
@@ -628,13 +424,17 @@ export const EvidenceViewerPage: React.FC = () => {
                     }}
                     title={anomaly.title}
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full font-bold text-[9px] flex items-center justify-center shadow-xs text-white ${
-                        isSelected ? 'bg-[#C94A45]' : 'bg-[#063F3A]'
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
+                    {/* Noticeable Arrow pointing at the anomaly */}
+                    <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex items-center">
+                      <span
+                        className={`w-5 h-5 rounded-full font-bold text-xs flex items-center justify-center shadow-xs text-white z-30 ${
+                          isSelected ? 'bg-[#C94A45]' : 'bg-[#063F3A]'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <ChevronRight className={`w-5 h-5 ${isSelected ? 'text-[#C94A45]' : 'text-[#063F3A]'}`} />
+                    </div>
                   </div>
                 );
               })}
