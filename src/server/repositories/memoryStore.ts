@@ -3,6 +3,7 @@
  * Drop-in replaceable with Firestore or PostgreSQL without changing service contracts.
  */
 
+import crypto from 'crypto';
 import {
   UserProfile,
   ActiveSession,
@@ -34,6 +35,41 @@ interface UserStoreRecord extends UserProfile {
   passwordHash: string;
 }
 
+// Cryptographic password utilities (PBKDF2 with salt + constant-time comparison)
+export function hashPassword(plainText: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(plainText, salt, 10000, 64, 'sha512').toString('hex');
+  return `pbkdf2$${salt}$${hash}`;
+}
+
+export function comparePassword(plainText: string, storedHash: string): boolean {
+  if (!storedHash || !plainText) return false;
+  // If stored in PBKDF2 format
+  if (storedHash.startsWith('pbkdf2$')) {
+    const parts = storedHash.split('$');
+    if (parts.length !== 3) return false;
+    const salt = parts[1];
+    const originalHash = parts[2];
+    const computedHash = crypto.pbkdf2Sync(plainText, salt, 10000, 64, 'sha512').toString('hex');
+    try {
+      const bufA = Buffer.from(computedHash, 'hex');
+      const bufB = Buffer.from(originalHash, 'hex');
+      if (bufA.length !== bufB.length) return false;
+      return crypto.timingSafeEqual(bufA, bufB);
+    } catch {
+      return false;
+    }
+  }
+  // Constant-time fallback for initial demo seeded credentials
+  const bufA = Buffer.from(plainText);
+  const bufB = Buffer.from(storedHash);
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 class InMemoryDatabase {
   users: Map<string, UserStoreRecord> = new Map();
   sessions: Map<string, ActiveSession> = new Map();
@@ -54,7 +90,7 @@ class InMemoryDatabase {
     INITIAL_MODELS.forEach((m) => this.models.set(m.id, m));
     INITIAL_DATASETS.forEach((d) => this.datasets.set(d.id, d));
 
-    // Seed Enterprise Demo Users
+    // Seed Enterprise Demo Users with PBKDF2 hashes
     const defaultUsers: UserStoreRecord[] = [
       {
         id: 'usr_enterprise_01',
@@ -66,7 +102,7 @@ class InMemoryDatabase {
         createdAt: '2025-01-10T09:00:00.000Z',
         activeSessionsCount: 1,
         organization: 'FinTech Onboarding Desk',
-        passwordHash: 'User@1234', // In production replaced by bcrypt/Argon2
+        passwordHash: hashPassword('User@1234'),
       },
       {
         id: 'usr_reviewer_02',
@@ -78,7 +114,7 @@ class InMemoryDatabase {
         createdAt: '2024-11-05T08:30:00.000Z',
         activeSessionsCount: 1,
         organization: 'DocSure SIH Verification Unit',
-        passwordHash: 'Reviewer@1234',
+        passwordHash: hashPassword('Reviewer@1234'),
       },
       {
         id: 'usr_admin_03',
@@ -90,7 +126,7 @@ class InMemoryDatabase {
         createdAt: '2024-09-01T00:00:00.000Z',
         activeSessionsCount: 2,
         organization: 'DocSure AI Enterprise Gov',
-        passwordHash: 'Admin@1234',
+        passwordHash: hashPassword('Admin@1234'),
       },
     ];
 
@@ -348,8 +384,9 @@ export class UserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<UserProfile | null> {
+    const cleanEmail = (email || '').trim().toLowerCase();
     for (const user of db.users.values()) {
-      if (user.email.toLowerCase() === email.toLowerCase()) {
+      if (user.email.trim().toLowerCase() === cleanEmail) {
         const { passwordHash, ...profile } = user;
         return profile;
       }
@@ -359,11 +396,13 @@ export class UserRepository implements IUserRepository {
 
   async create(userData: Omit<UserProfile, 'id' | 'createdAt'> & { passwordHash?: string }): Promise<UserProfile> {
     const id = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const cleanEmail = (userData.email || '').trim().toLowerCase();
     const record: UserStoreRecord = {
       ...userData,
+      email: cleanEmail,
       id,
       createdAt: new Date().toISOString(),
-      passwordHash: userData.passwordHash || 'Default@1234',
+      passwordHash: userData.passwordHash ? (userData.passwordHash.startsWith('pbkdf2$') ? userData.passwordHash : hashPassword(userData.passwordHash)) : hashPassword('Default@1234'),
     };
     db.users.set(id, record);
     const { passwordHash, ...profile } = record;
@@ -374,6 +413,9 @@ export class UserRepository implements IUserRepository {
     const existing = db.users.get(id);
     if (!existing) return null;
     const updated = { ...existing, ...updates };
+    if (updates.email) {
+      updated.email = updates.email.trim().toLowerCase();
+    }
     db.users.set(id, updated);
     const { passwordHash, ...profile } = updated;
     return profile;
@@ -384,9 +426,10 @@ export class UserRepository implements IUserRepository {
   }
 
   async verifyPassword(email: string, plainText: string): Promise<UserProfile | null> {
+    const cleanEmail = (email || '').trim().toLowerCase();
     for (const user of db.users.values()) {
-      if (user.email.toLowerCase() === email.toLowerCase()) {
-        if (user.passwordHash === plainText) {
+      if (user.email.trim().toLowerCase() === cleanEmail) {
+        if (comparePassword(plainText, user.passwordHash)) {
           const { passwordHash, ...profile } = user;
           return profile;
         }
@@ -398,7 +441,7 @@ export class UserRepository implements IUserRepository {
   async updatePassword(id: string, newPasswordHash: string): Promise<boolean> {
     const existing = db.users.get(id);
     if (!existing) return false;
-    existing.passwordHash = newPasswordHash;
+    existing.passwordHash = newPasswordHash.startsWith('pbkdf2$') ? newPasswordHash : hashPassword(newPasswordHash);
     return true;
   }
 }

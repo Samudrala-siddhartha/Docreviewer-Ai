@@ -45,7 +45,7 @@ async function startServer() {
   app.use(createAuthMiddleware(authService));
 
   // Mount API router FIRST
-  const apiRouter = createApiRouter();
+  const apiRouter = createApiRouter({ authService, userRepo, sessionRepo, auditRepo, auditService });
   app.use('/api', apiRouter);
 
   // Central error handling

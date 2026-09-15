@@ -145,19 +145,74 @@ export function requireRole(...allowedRoles: UserRole[]) {
   };
 }
 
+// Robust async handler wrapper to guarantee errors forward to centralErrorHandler
+export function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
 export function centralErrorHandler(err: any, req: Request, res: Response, next: NextFunction) {
+  // If response headers were already sent, delegate to Express default handler to prevent crashes
+  if (res.headersSent) {
+    return next(err);
+  }
+
   const isDev = process.env.NODE_ENV !== 'production';
   console.error('[API Error]:', err?.message || err);
+
+  // 1. Handle JSON Parsing Syntax Errors (e.g. malformed body sent to express.json)
+  if (err instanceof SyntaxError && ('body' in err || (err as any).type === 'entity.parse.failed')) {
+    const response: ApiResponse = {
+      success: false,
+      error: {
+        code: 'JSON_PARSE_ERROR',
+        message: 'Malformed JSON payload. Please ensure request body is valid JSON.',
+        category: 'VALIDATION_ERROR',
+      },
+    };
+    return res.status(400).json(response);
+  }
+
+  // 2. Handle Payload Too Large (e.g. upload exceeds 15MB express limit)
+  if ((err as any).type === 'entity.too.large' || err?.status === 413) {
+    const response: ApiResponse = {
+      success: false,
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Uploaded payload exceeds the maximum permitted limit of 15MB. Please compress or resize the document.',
+        category: 'VALIDATION_ERROR',
+      },
+    };
+    return res.status(413).json(response);
+  }
+
+  // 3. Handle Rate Limiting Errors
+  if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.status === 429) {
+    const response: ApiResponse = {
+      success: false,
+      error: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: err?.message || 'Rate limit exceeded. Please throttle your verification requests.',
+        category: 'RATE_LIMIT_ERROR',
+      },
+    };
+    return res.status(429).json(response);
+  }
+
+  // 4. Client vs Server Error Resolution
+  const statusCode = err?.status || err?.statusCode || 500;
+  const isClientError = statusCode >= 400 && statusCode < 500;
 
   const response: ApiResponse = {
     success: false,
     error: {
-      code: err?.code || 'INTERNAL_ERROR',
+      code: err?.code || (isClientError ? 'CLIENT_REQUEST_ERROR' : 'INTERNAL_ERROR'),
       message: err?.message || 'An unexpected error occurred during processing.',
-      category: err?.category || 'INTERNAL_ERROR',
-      details: isDev ? err?.stack : undefined,
+      category: err?.category || (isClientError ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR'),
+      details: isDev && !isClientError ? err?.stack : undefined,
     },
   };
 
-  res.status(err?.status || 500).json(response);
+  res.status(statusCode).json(response);
 }

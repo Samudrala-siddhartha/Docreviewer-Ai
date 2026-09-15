@@ -18,37 +18,62 @@ export class AuthService implements IAuthService {
     this.auditService = auditService;
   }
 
-  async signup(email: string, name: string, password: string, organization?: string): Promise<{ user: UserProfile; token: string }> {
-    const existing = await this.userRepo.findByEmail(email);
+  async signup(
+    email: string,
+    name: string,
+    password: string,
+    organization?: string,
+    ip: string = '127.0.0.1',
+    userAgent: string = 'DocSure Web Client'
+  ): Promise<{ user: UserProfile; token: string }> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (name || '').trim();
+
+    // Standard RFC-compliant email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      throw new Error('Please provide a valid email address.');
+    }
+
+    if (!cleanName) {
+      throw new Error('Name is required and cannot be blank.');
+    }
+
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters long.');
+    }
+
+    const existing = await this.userRepo.findByEmail(cleanEmail);
     if (existing) {
       throw new Error('An account with this email address already exists.');
     }
 
-    if (password.length < 8) {
-      throw new Error('Password must be at least 8 characters long.');
-    }
-
     const user = await this.userRepo.create({
-      email,
-      name,
+      email: cleanEmail,
+      name: cleanName,
       role: 'USER',
       isEmailVerified: true, // For demo convenience
       twoFactorEnabled: false,
       activeSessionsCount: 1,
-      organization: organization || 'Standard User Desk',
+      organization: (organization || 'Standard User Desk').trim(),
       passwordHash: password,
     });
 
-    const session = await this.sessionRepo.createSession(user.id, '127.0.0.1', 'DocSure Web Client');
-    await this.auditService.record('LOGIN', `New user registered and authenticated: ${user.email}`, '127.0.0.1', user);
+    const session = await this.sessionRepo.createSession(user.id, ip, userAgent);
+    await this.auditService.record('LOGIN', `New user registered and authenticated: ${user.email}`, ip, user);
 
     return { user, token: session.id };
   }
 
   async login(email: string, password: string, ip: string, userAgent: string): Promise<{ user: UserProfile; token: string }> {
-    const user = await this.userRepo.verifyPassword(email, password);
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      throw new Error('Email and password are required.');
+    }
+
+    const user = await this.userRepo.verifyPassword(cleanEmail, password);
     if (!user) {
-      await this.auditService.record('FAILED_LOGIN', `Failed login attempt for identifier ${email}`, ip, undefined, 'WARNING');
+      await this.auditService.record('FAILED_LOGIN', `Failed login attempt for identifier ${cleanEmail}`, ip, undefined, 'WARNING');
       throw new Error('Invalid email or password.');
     }
 

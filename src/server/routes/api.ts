@@ -22,7 +22,7 @@ import { MockMalwareScanner } from '../services/malwareScanner.ts';
 import { MockDigiLockerService } from '../services/digiLockerService.ts';
 import { RiskEngine } from '../services/riskEngine.ts';
 import { GeminiService } from '../services/geminiService.ts';
-import { requireAuth, requireRole } from '../middleware/security.ts';
+import { requireAuth, requireRole, asyncHandler } from '../middleware/security.ts';
 import {
   ApiResponse,
   DocumentType,
@@ -34,27 +34,42 @@ import {
 } from '../../shared/types.ts';
 import { STANDARD_DISCLAIMER, UNCERTAINTY_NOTICE } from '../../shared/constants.ts';
 
-export function createApiRouter(): Router {
+export interface ApiRouterDependencies {
+  userRepo?: UserRepository;
+  sessionRepo?: SessionRepository;
+  scanRepo?: ScanRepository;
+  ticketRepo?: TicketRepository;
+  templateRepo?: TemplateRepository;
+  modelRepo?: ModelRegistryRepository;
+  datasetRepo?: DatasetRepository;
+  auditRepo?: AuditRepository;
+  auditService?: AuditService;
+  authService?: AuthService;
+  storageService?: StorageService;
+  geminiService?: GeminiService;
+}
+
+export function createApiRouter(deps: ApiRouterDependencies = {}): Router {
   const router = Router();
 
-  // Instantiate repositories
-  const userRepo = new UserRepository();
-  const sessionRepo = new SessionRepository();
-  const scanRepo = new ScanRepository();
-  const ticketRepo = new TicketRepository();
-  const templateRepo = new TemplateRepository();
-  const modelRepo = new ModelRegistryRepository();
-  const datasetRepo = new DatasetRepository();
-  const auditRepo = new AuditRepository();
+  // Instantiate or inject repositories
+  const userRepo = deps.userRepo || new UserRepository();
+  const sessionRepo = deps.sessionRepo || new SessionRepository();
+  const scanRepo = deps.scanRepo || new ScanRepository();
+  const ticketRepo = deps.ticketRepo || new TicketRepository();
+  const templateRepo = deps.templateRepo || new TemplateRepository();
+  const modelRepo = deps.modelRepo || new ModelRegistryRepository();
+  const datasetRepo = deps.datasetRepo || new DatasetRepository();
+  const auditRepo = deps.auditRepo || new AuditRepository();
 
-  // Instantiate services
-  const auditService = new AuditService(auditRepo);
-  const authService = new AuthService(userRepo, sessionRepo, auditService);
-  const storageService = new StorageService();
+  // Instantiate or inject services
+  const auditService = deps.auditService || new AuditService(auditRepo);
+  const authService = deps.authService || new AuthService(userRepo, sessionRepo, auditService);
+  const storageService = deps.storageService || new StorageService();
   const malwareScanner = new MockMalwareScanner();
   const digiLockerService = new MockDigiLockerService();
   const riskEngine = new RiskEngine();
-  const geminiService = new GeminiService();
+  const geminiService = deps.geminiService || new GeminiService();
 
   // ==========================================
   // Health & Operational Readiness
@@ -76,30 +91,51 @@ export function createApiRouter(): Router {
   // ==========================================
   // Authentication Endpoints
   // ==========================================
-  router.post('/auth/signup', async (req: Request, res: Response) => {
+  router.post('/auth/signup', asyncHandler(async (req: Request, res: Response) => {
     try {
       const { email, name, password, organization } = req.body || {};
-      if (!email || !name || !password) {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanName = (name || '').trim();
+
+      if (!cleanEmail || !cleanName || !password) {
         return res.status(400).json({
           success: false,
-          error: { code: 'INVALID_INPUT', message: 'Email, name, and password are required.', category: 'VALIDATION_ERROR' },
+          error: { code: 'INVALID_INPUT', message: 'Email, full name, and password are required.', category: 'VALIDATION_ERROR' },
         });
       }
 
-      const result = await authService.signup(email, name, password, organization);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_EMAIL_FORMAT', message: 'Please provide a valid email address (e.g. officer@agency.gov.in).', category: 'VALIDATION_ERROR' },
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'PASSWORD_TOO_SHORT', message: 'Password must be at least 8 characters long.', category: 'VALIDATION_ERROR' },
+        });
+      }
+
+      const ip = req.clientIp || '127.0.0.1';
+      const userAgent = (req.headers['user-agent'] as string) || 'DocSure Client';
+      const result = await authService.signup(cleanEmail, cleanName, password, organization, ip, userAgent);
       res.status(201).json({ success: true, data: result });
     } catch (err: any) {
       res.status(400).json({
         success: false,
-        error: { code: 'SIGNUP_FAILED', message: err.message, category: 'AUTHENTICATION_ERROR' },
+        error: { code: 'SIGNUP_FAILED', message: err.message || 'Signup failed.', category: 'AUTHENTICATION_ERROR' },
       });
     }
-  });
+  }));
 
-  router.post('/auth/login', async (req: Request, res: Response) => {
+  router.post('/auth/login', asyncHandler(async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body || {};
-      if (!email || !password) {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      if (!cleanEmail || !password) {
         return res.status(400).json({
           success: false,
           error: { code: 'INVALID_INPUT', message: 'Email and password are required.', category: 'VALIDATION_ERROR' },
@@ -107,34 +143,34 @@ export function createApiRouter(): Router {
       }
 
       const ip = req.clientIp || '127.0.0.1';
-      const userAgent = req.headers['user-agent'] || 'DocSure Client';
-      const result = await authService.login(email, password, ip, userAgent);
+      const userAgent = (req.headers['user-agent'] as string) || 'DocSure Client';
+      const result = await authService.login(cleanEmail, password, ip, userAgent);
 
       res.json({ success: true, data: result });
     } catch (err: any) {
       res.status(401).json({
         success: false,
-        error: { code: 'AUTH_FAILED', message: err.message, category: 'AUTHENTICATION_ERROR' },
+        error: { code: 'AUTH_FAILED', message: err.message || 'Invalid credentials.', category: 'AUTHENTICATION_ERROR' },
       });
     }
-  });
+  }));
 
-  router.post('/auth/logout', requireAuth, async (req: Request, res: Response) => {
+  router.post('/auth/logout', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const token = req.headers.authorization?.split(' ')[1] || '';
     await authService.logout(token);
     res.json({ success: true, data: { loggedOut: true } });
-  });
+  }));
 
-  router.get('/auth/me', requireAuth, async (req: Request, res: Response) => {
+  router.get('/auth/me', requireAuth, (req: Request, res: Response) => {
     res.json({ success: true, data: req.user });
   });
 
-  router.get('/auth/sessions', requireAuth, async (req: Request, res: Response) => {
+  router.get('/auth/sessions', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const sessions = await authService.getUserSessions(req.user!.id);
     res.json({ success: true, data: sessions });
-  });
+  }));
 
-  router.post('/auth/change-password', requireAuth, async (req: Request, res: Response) => {
+  router.post('/auth/change-password', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { oldPassword, newPassword } = req.body || {};
       if (!oldPassword || !newPassword) {
@@ -144,21 +180,28 @@ export function createApiRouter(): Router {
         });
       }
 
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'PASSWORD_TOO_SHORT', message: 'New password must be at least 8 characters long.', category: 'VALIDATION_ERROR' },
+        });
+      }
+
       await authService.changePassword(req.user!.id, oldPassword, newPassword);
       res.json({ success: true, data: { changed: true } });
     } catch (err: any) {
       res.status(400).json({
         success: false,
-        error: { code: 'PASSWORD_CHANGE_FAILED', message: err.message, category: 'AUTHENTICATION_ERROR' },
+        error: { code: 'PASSWORD_CHANGE_FAILED', message: err.message || 'Password update failed.', category: 'AUTHENTICATION_ERROR' },
       });
     }
-  });
+  }));
 
-  router.post('/auth/2fa', requireAuth, async (req: Request, res: Response) => {
+  router.post('/auth/2fa', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const { enable } = req.body || {};
     await authService.toggle2FA(req.user!.id, Boolean(enable));
     res.json({ success: true, data: { twoFactorEnabled: Boolean(enable) } });
-  });
+  }));
 
   // ==========================================
   // Document Screening Pipeline
@@ -975,7 +1018,7 @@ export function createApiRouter(): Router {
   router.post('/scans', handleDocumentScreening);
   router.post('/scans/analyze', handleDocumentScreening);
 
-  router.get('/scans/:id', requireAuth, async (req: Request, res: Response) => {
+  router.get('/scans/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const scan = await scanRepo.findById(req.params.id);
     if (!scan) {
       return res.status(404).json({
@@ -993,9 +1036,9 @@ export function createApiRouter(): Router {
     }
 
     res.json({ success: true, data: scan });
-  });
+  }));
 
-  router.get('/scans/:id/evidence', requireAuth, async (req: Request, res: Response) => {
+  router.get('/scans/:id/evidence', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const scan = await scanRepo.findById(req.params.id);
     if (!scan) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Scan not found', category: 'DOCUMENT_ERROR' } });
 
@@ -1013,9 +1056,9 @@ export function createApiRouter(): Router {
         disclaimer: UNCERTAINTY_NOTICE,
       },
     });
-  });
+  }));
 
-  router.get('/scans/:id/report', requireAuth, async (req: Request, res: Response) => {
+  router.get('/scans/:id/report', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const scan = await scanRepo.findById(req.params.id);
     if (!scan) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Scan not found', category: 'DOCUMENT_ERROR' } });
 
@@ -1038,10 +1081,10 @@ export function createApiRouter(): Router {
         activeTemplates: await templateRepo.findByDocumentType(scan.documentType),
       },
     });
-  });
+  }));
 
   // Request manual review by a qualified human reviewer
-  router.post('/scans/:id/manual-review', requireAuth, async (req: Request, res: Response) => {
+  router.post('/scans/:id/manual-review', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const scan = await scanRepo.findById(req.params.id);
     if (!scan) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Scan not found', category: 'DOCUMENT_ERROR' } });
 
@@ -1053,10 +1096,10 @@ export function createApiRouter(): Router {
     await auditService.record('MANUAL_REVIEW_REQUESTED', `Manual review requested for scan ${scan.id}`, req.clientIp || '127.0.0.1', req.user);
 
     res.json({ success: true, data: updated });
-  });
+  }));
 
   // Reviewer or Admin decision endpoint
-  router.post('/scans/:id/decide-review', requireAuth, requireRole('REVIEWER', 'ADMIN'), async (req: Request, res: Response) => {
+  router.post('/scans/:id/decide-review', requireAuth, requireRole('REVIEWER', 'ADMIN'), asyncHandler(async (req: Request, res: Response) => {
     const { decision, notes } = req.body || {};
     if (!['APPROVED', 'REJECTED', 'NEEDS_MORE_INFORMATION', 'INCONCLUSIVE'].includes(decision)) {
       return res.status(400).json({ success: false, error: { code: 'INVALID_DECISION', message: 'Invalid review decision', category: 'VALIDATION_ERROR' } });
@@ -1077,9 +1120,9 @@ export function createApiRouter(): Router {
     );
 
     res.json({ success: true, data: updated });
-  });
+  }));
 
-  router.delete('/scans/:id', requireAuth, async (req: Request, res: Response) => {
+  router.delete('/scans/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const scan = await scanRepo.findById(req.params.id);
     if (!scan) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Scan not found', category: 'DOCUMENT_ERROR' } });
 
@@ -1091,31 +1134,31 @@ export function createApiRouter(): Router {
     await auditService.record('DELETION', `User purged scan record: ${scan.id}`, req.clientIp || '127.0.0.1', req.user);
 
     res.json({ success: true, data: { deleted: true } });
-  });
+  }));
 
   // ==========================================
   // Scan History
   // ==========================================
-  router.get('/history', requireAuth, async (req: Request, res: Response) => {
+  router.get('/history', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const scans = req.user!.role === 'USER'
       ? await scanRepo.listByUserId(req.user!.id)
       : await scanRepo.listAll(100);
 
     res.json({ success: true, data: scans });
-  });
+  }));
 
   // ==========================================
   // Support Tickets
   // ==========================================
-  router.get('/tickets', requireAuth, async (req: Request, res: Response) => {
+  router.get('/tickets', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const tickets = req.user!.role === 'USER'
       ? await ticketRepo.listByUserId(req.user!.id)
       : await ticketRepo.listAll();
 
     res.json({ success: true, data: tickets });
-  });
+  }));
 
-  router.post('/tickets', requireAuth, async (req: Request, res: Response) => {
+  router.post('/tickets', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const { category = 'SCAN_DISPUTE', priority = 'MEDIUM', subject, description, scanId } = req.body || {};
     if (!subject || !description) {
       return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Subject and description required.', category: 'VALIDATION_ERROR' } });
@@ -1133,31 +1176,31 @@ export function createApiRouter(): Router {
     });
 
     res.status(201).json({ success: true, data: ticket });
-  });
+  }));
 
-  router.patch('/tickets/:id', requireAuth, async (req: Request, res: Response) => {
+  router.patch('/tickets/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const { status, resolutionNotes } = req.body || {};
     const updated = await ticketRepo.update(req.params.id, { status, resolutionNotes });
     res.json({ success: true, data: updated });
-  });
+  }));
 
   // ==========================================
   // Reference Templates, Models & Datasets
   // ==========================================
-  router.get('/templates', async (req: Request, res: Response) => {
+  router.get('/templates', asyncHandler(async (req: Request, res: Response) => {
     const templates = await templateRepo.listAll();
     res.json({ success: true, data: templates });
-  });
+  }));
 
-  router.get('/models', async (req: Request, res: Response) => {
+  router.get('/models', asyncHandler(async (req: Request, res: Response) => {
     const models = await modelRepo.listAll();
     res.json({ success: true, data: models });
-  });
+  }));
 
-  router.get('/datasets', async (req: Request, res: Response) => {
+  router.get('/datasets', asyncHandler(async (req: Request, res: Response) => {
     const datasets = await datasetRepo.listAll();
     res.json({ success: true, data: datasets });
-  });
+  }));
 
   // ==========================================
   // DigiLocker Demo Abstraction
@@ -1173,19 +1216,19 @@ export function createApiRouter(): Router {
     });
   });
 
-  router.get('/digilocker/documents', async (req: Request, res: Response) => {
+  router.get('/digilocker/documents', asyncHandler(async (req: Request, res: Response) => {
     const docs = await digiLockerService.getPermittedDocuments();
     res.json({
       success: true,
       data: docs,
       meta: { demoMode: true, label: 'Demo Sandbox Feed — Simulated Credentials' },
     });
-  });
+  }));
 
   // ==========================================
   // AI Assistant (Multimodal & Forensic Q&A)
   // ==========================================
-  router.post('/assistant/ask', async (req: Request, res: Response) => {
+  router.post('/assistant/ask', asyncHandler(async (req: Request, res: Response) => {
     const { query, context } = req.body || {};
     if (!query) {
       return res.status(400).json({ success: false, error: { code: 'INVALID_QUERY', message: 'Query is required.', category: 'VALIDATION_ERROR' } });
@@ -1193,22 +1236,22 @@ export function createApiRouter(): Router {
 
     const answer = await geminiService.askAssistant(query, context);
     res.json({ success: true, data: { answer } });
-  });
+  }));
 
   // ==========================================
   // Admin Endpoints
   // ==========================================
-  router.get('/admin/users', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  router.get('/admin/users', requireAuth, requireRole('ADMIN'), asyncHandler(async (req: Request, res: Response) => {
     const users = await userRepo.listAll();
     res.json({ success: true, data: users });
-  });
+  }));
 
-  router.get('/admin/scans', requireAuth, requireRole('REVIEWER', 'ADMIN'), async (req: Request, res: Response) => {
+  router.get('/admin/scans', requireAuth, requireRole('REVIEWER', 'ADMIN'), asyncHandler(async (req: Request, res: Response) => {
     const scans = await scanRepo.listAll(100);
     res.json({ success: true, data: scans });
-  });
+  }));
 
-  router.get('/admin/metrics', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  router.get('/admin/metrics', requireAuth, requireRole('ADMIN'), asyncHandler(async (req: Request, res: Response) => {
     const allScans = await scanRepo.listAll(500);
     const highRiskCount = allScans.filter((s) => s.result?.riskLevel === 'HIGH_RISK').length;
     const manualReviews = allScans.filter((s) => Boolean(s.manualReviewStatus)).length;
@@ -1225,12 +1268,23 @@ export function createApiRouter(): Router {
         uptimeSeconds: Math.floor(process.uptime()),
       },
     });
-  });
+  }));
 
-  router.get('/admin/audit-logs', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  router.get('/admin/audit-logs', requireAuth, requireRole('ADMIN'), asyncHandler(async (req: Request, res: Response) => {
     const logs = await auditService.getRecentLogs(100);
     res.json({ success: true, data: logs });
-  });
+  }));
+
+  // Admin aliases for templates and models
+  router.get('/admin/templates', requireAuth, requireRole('ADMIN'), asyncHandler(async (req: Request, res: Response) => {
+    const templates = await templateRepo.listAll();
+    res.json({ success: true, data: templates });
+  }));
+
+  router.get('/admin/models', requireAuth, requireRole('ADMIN'), asyncHandler(async (req: Request, res: Response) => {
+    const models = await modelRepo.listAll();
+    res.json({ success: true, data: models });
+  }));
 
   return router;
 }
